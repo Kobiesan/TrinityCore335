@@ -671,10 +671,10 @@ namespace
         if (amount == 0)
             return;
         ASSERT(g_pokerTransaction);
-        MailDraft draft(recovery ? "Southport Poker refund" : "Southport Casino",
-            recovery ? "The server restarted. Your unfinished poker hand was voided. "
-                "This returns your remaining table gold and your contributions to that hand. "
-                "Completed hands keep their results. No rake was taken from the voided hand."
+        MailDraft draft("Southport Casino",
+            recovery ? "The floor got a little too exciting and we had to clear the tables. "
+                "Here is the gold you left with us, and your stake in the hand that was cut short. "
+                "Tables that already paid out are settled as they stood. Come back and see us."
                 : "Here is the gold you had on the table. Come back and see us.");
         draft.AddMoney(amount);
         draft.SendMailTo(g_pokerTransaction, MailReceiver(guid.GetCounter()), MailSender(MAIL_CREATURE, 5000017 /* Southport Casino */));
