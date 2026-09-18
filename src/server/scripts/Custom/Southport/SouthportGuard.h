@@ -1,0 +1,6 @@
+#ifndef TRINITY_SOUTHPORT_GUARD_H
+#define TRINITY_SOUTHPORT_GUARD_H
+
+void AddSC_southport_guard();
+
+#endif // TRINITY_SOUTHPORT_GUARD_H
