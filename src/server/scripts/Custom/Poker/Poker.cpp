@@ -1,8 +1,9 @@
 /*
  * Southport Poker: no-limit Texas Hold'em for 2 to 8 players seated at a physical table.
  * Chairs (gameobject entry 5000100, gameobject_template.ScriptName "PokerChair") seat players.
- * Tables are formed by chair proximity (chairs within 6 yards of one another); no table
- * gameobject is required.
+ * Chairs map to a table via `poker_chair.tableId`; the table's chairs are looked up directly
+ * from that mapping (no proximity search), so chair placement is not tied to distance. No
+ * table gameobject is required.
  * Money: buy-in 5g to 100g creates a table stack; blinds 50s/1g; 10% rake taken from the pot at
  * settlement. The pot is paid back into the winner's table stack and only converted to real money
  * on cash-out (leaving the chair), so the table's chips are conserved apart from the rake.
@@ -26,6 +27,7 @@
 #include "Timer.h"
 #include "Player.h"
 #include "GameObject.h"
+#include "Map.h"
 #include "Mail.h"
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
@@ -52,9 +54,8 @@ namespace
     using namespace Trinity::ChatCommands;
 
     constexpr char const* ADDON_PREFIX = "SPoker";
-    constexpr uint32 CHAIR_ENTRY = 5000100;
     constexpr uint32 MAX_SEATS = 8;
-    constexpr uint32 DEFAULT_TABLE_ID = 1;                // tableId used for chairs not mapped in `poker_chair`
+    constexpr uint32 DEFAULT_TABLE_ID = 1;                // tableId whose config is the fallback for other tables
     constexpr uint32 ACTION_TIMEOUT_MS = 30 * 1000;
     constexpr uint32 START_DELAY_MS = 10 * 1000;
     constexpr uint32 HAND_COMPLETE_MS = 5 * 1000;         // "hand complete" beat, then the start countdown runs
@@ -78,6 +79,7 @@ namespace
     };
     std::vector<PendingPokerMessage> g_pendingMessages;
     std::unordered_set<ObjectGuid> g_pendingAchievementPlayers;
+    std::unordered_map<uint64, uint32> g_pokerWinStreak;  // player counter -> current win streak
 
     void RecordPokerResult(ObjectGuid guid, bool won, uint32 flags)
     {
@@ -98,6 +100,54 @@ namespace
         g_pendingAchievementPlayers.insert(guid);
     }
 
+    // Statistics: never-completing counters (Achievement.dbc flag COUNTER, Quantity 0).
+    // Counters accumulate, except "most gold won" and "longest streak" which keep the max.
+    struct PokerStatDelta
+    {
+        uint32 played = 0;
+        uint32 won = 0;
+        uint32 lost = 0;
+        uint32 folded = 0;
+        uint32 amountWon = 0;
+        uint32 amountLost = 0;
+        uint32 mostGoldWon = 0;
+        uint32 longestStreak = 0;
+        uint32 rakePaid = 0;
+    };
+
+    void RecordPokerStats(uint64 guid, PokerStatDelta const& d)
+    {
+        ASSERT(g_pokerTransaction);
+        uint32 now = uint32(GameTime::GetGameTime());
+
+        // Always include hands played and won (even at zero) so the win-percentage
+        // statement below can rely on both rows existing.
+        g_pokerTransaction->PAppend(
+            "INSERT INTO character_achievement_progress (guid, criteria, counter, date) VALUES "
+            "({}, 51042, {}, {}), ({}, 51043, {}, {}), ({}, 51044, {}, {}), ({}, 51045, {}, {}), "
+            "({}, 51048, {}, {}), ({}, 51049, {}, {}), ({}, 51051, {}, {}) "
+            "ON DUPLICATE KEY UPDATE counter = counter + VALUES(counter), date = VALUES(date)",
+            guid, d.played, now, guid, d.won, now, guid, d.lost, now, guid, d.folded, now,
+            guid, d.amountWon, now, guid, d.amountLost, now, guid, d.rakePaid, now);
+
+        // Maximum-valued counters.
+        g_pokerTransaction->PAppend(
+            "INSERT INTO character_achievement_progress (guid, criteria, counter, date) VALUES "
+            "({}, 51047, {}, {}), ({}, 51050, {}, {}) "
+            "ON DUPLICATE KEY UPDATE counter = GREATEST(counter, VALUES(counter)), date = VALUES(date)",
+            guid, d.mostGoldWon, now, guid, d.longestStreak, now);
+
+        // Win percentage from the counters written just above: wins * 100 / played.
+        g_pokerTransaction->PAppend(
+            "INSERT INTO character_achievement_progress (guid, criteria, counter, date) "
+            "SELECT {}, 51046, IF(s.played > 0, (s.won * 100) / s.played, 0), {} "
+            "FROM (SELECT p.counter AS played, w.counter AS won "
+            "FROM (SELECT counter FROM character_achievement_progress WHERE guid = {} AND criteria = 51042) p "
+            "JOIN (SELECT counter FROM character_achievement_progress WHERE guid = {} AND criteria = 51043) w ON 1 = 1) AS s "
+            "ON DUPLICATE KEY UPDATE counter = VALUES(counter), date = VALUES(date)",
+            guid, now, guid, guid);
+    }
+
     // Check the external criteria definitions against the loaded DBCs before
     // enabling poker; these definitions are owned by this module.
     bool ValidatePokerAchievements()
@@ -114,6 +164,21 @@ namespace
                 return false;
             }
         }
+        // Statistics: counter-flagged achievements with Quantity 0 (they never complete).
+        for (uint32 id = PokerAchievements::FirstStatCriteria; id <= PokerAchievements::LastStatCriteria; ++id)
+        {
+            AchievementCriteriaEntry const* criteria = sAchievementCriteriaStore.LookupEntry(id);
+            AchievementEntry const* achievement = criteria ? sAchievementStore.LookupEntry(criteria->AchievementID) : nullptr;
+            if (!criteria || !achievement ||
+                criteria->AchievementID != id - 46019 ||
+                criteria->Type != ACHIEVEMENT_CRITERIA_TYPE_USE_GAMEOBJECT ||
+                criteria->Quantity != 0 ||
+                !(achievement->Flags & ACHIEVEMENT_FLAG_COUNTER))
+            {
+                TC_LOG_ERROR("misc", "Poker disabled: statistic criteria {} is missing or does not match (needs COUNTER flag and Quantity 0).", id);
+                return false;
+            }
+        }
         return true;
     }
 
@@ -127,8 +192,9 @@ namespace
             return;
         std::ostringstream qs;
         qs << "SELECT criteria, counter, date FROM character_achievement_progress WHERE guid = "
-            << player->GetGUID().GetCounter() << " AND criteria BETWEEN "
-            << PokerAchievements::FirstCriteria << " AND " << PokerAchievements::LastCriteria;
+            << player->GetGUID().GetCounter() << " AND (criteria BETWEEN "
+            << PokerAchievements::FirstCriteria << " AND " << PokerAchievements::LastCriteria
+            << " OR criteria BETWEEN " << PokerAchievements::FirstStatCriteria << " AND " << PokerAchievements::LastStatCriteria << ")";
         QueryResult result = CharacterDatabase.QueryNoRetry(qs.str().c_str());
         if (!result)
             return;
@@ -183,12 +249,6 @@ namespace
             return def->second;
         static PokerTableConfig const empty;
         return empty;
-    }
-
-    uint32 TableIdForChair(uint32 spawnId)
-    {
-        auto it = g_chairTable.find(spawnId);
-        return it != g_chairTable.end() ? it->second : DEFAULT_TABLE_ID;
     }
 
     uint32 ChairPosition(uint32 spawnId)
@@ -344,6 +404,8 @@ namespace
         uint8 playerRace = 0;   // for the race icon in the addon
         uint8 playerGender = 0; // gender (0 male, 1 female) for the race icon
         uint32 icon = 0;        // per-player seat icon chosen in the addon
+        std::unordered_set<uint32> ownedIcons; // icons bought permanently (own class/race are always free)
+        uint32 macroIconMax = 0; // client GetNumMacroIcons(), reported with ICONMAX (bounds valid macro indices)
     };
 
     uint32 RankFive(uint32 const* cards)
@@ -650,6 +712,60 @@ namespace
         return pay;
     }
 
+    uint32 PokerIconForClass(uint8 cls)
+    {
+        switch (cls)
+        {
+            case CLASS_WARRIOR:      return 50001;
+            case CLASS_MAGE:         return 50002;
+            case CLASS_ROGUE:        return 50003;
+            case CLASS_DRUID:        return 50004;
+            case CLASS_HUNTER:       return 50005;
+            case CLASS_SHAMAN:       return 50006;
+            case CLASS_PRIEST:       return 50007;
+            case CLASS_WARLOCK:      return 50008;
+            case CLASS_PALADIN:      return 50009;
+            case CLASS_DEATH_KNIGHT: return 50010;
+            default:                 return 0;
+        }
+    }
+
+    uint32 PokerIconForRace(uint8 race, uint8 gender)
+    {
+        static uint8 const RACE_ORDER[10] = { 1, 2, 3, 4, 5, 6, 7, 8, 10, 11 };
+        uint32 pos = 0;
+        for (uint32 i = 0; i < 10; ++i)
+            if (RACE_ORDER[i] == race) { pos = i + 1; break; }
+        if (!pos)
+            return 0;
+        uint32 genderBit = (gender == GENDER_FEMALE) ? 2 : 1;
+        return 50010 + (pos - 1) * 2 + genderBit;
+    }
+
+    // the player's own class crest and race portrait are always usable without paying
+    bool IsFreePokerIcon(Player* player, uint32 index)
+    {
+        return index == 0 ||
+               index == PokerIconForClass(player->GetClass()) ||
+               index == PokerIconForRace(player->GetRace(), player->GetGender());
+    }
+
+    // Icon index space: 0 = none, 50001..50030 = class/race specials, and
+    // 1..GetNumMacroIcons() = the client's macro icon list. The server does not
+    // ship that list, so the client reports its size (ICONMAX) and we reject any
+    // other index rather than charging for and storing an icon that cannot render.
+    constexpr uint32 SPECIAL_ICON_BASE = 50000;
+    constexpr uint32 SPECIAL_ICON_COUNT = 30;
+
+    bool IsValidPokerIcon(PokerSeat const* s, uint32 index)
+    {
+        if (index == 0)
+            return true;
+        if (index > SPECIAL_ICON_BASE && index <= SPECIAL_ICON_BASE + SPECIAL_ICON_COUNT)
+            return true;
+        return index >= 1 && index <= s->macroIconMax;
+    }
+
     class PokerTable
     {
     public:
@@ -708,26 +824,22 @@ namespace
 
         // discover this table's chair gameobjects (from the `poker_chair` mapping) and assign
         // stable slot indices, ordered by bearing around the chair-ring centroid
-        void PopulateChairs(GameObject* clicked, uint32 tableId, uint32 entry, float searchRange)
+        void PopulateChairs(GameObject* clicked, uint32 tableId)
         {
             if (!_chairs.empty())
                 return;
 
-            std::vector<GameObject*> gos;
-            clicked->GetGameObjectListWithEntryInGrid(gos, entry, searchRange);
+            Map* map = clicked->GetMap();
+            if (!map)
+                return;
 
-            // keep only chairs mapped to this table; fall back to all nearby chairs if nothing is mapped
+            // The `poker_chair` mapping is authoritative: a chair belongs to a table by its
+            // configured tableId, so look each one up directly on this map (no proximity search).
             std::vector<GameObject*> mine;
-            for (GameObject* go : gos)
-                if (TableIdForChair(go->GetSpawnId()) == tableId)
-                    mine.push_back(go);
-
-            bool hasClicked = false;
-            for (GameObject* go : mine)
-                if (go->GetSpawnId() == clicked->GetSpawnId())
-                    hasClicked = true;
-            if (!hasClicked)
-                mine.push_back(clicked);
+            for (auto const& mapping : g_chairTable)
+                if (mapping.second == tableId)
+                    if (GameObject* go = map->GetGameObjectBySpawnId(mapping.first))
+                        mine.push_back(go);
             if (mine.empty())
                 return;
 
@@ -813,6 +925,12 @@ namespace
                 qs << "SELECT icon FROM poker_icon WHERE guid = " << player->GetGUID().GetCounter();
                 if (QueryResult result = CharacterDatabase.QueryNoRetry(qs.str().c_str()))
                     s->icon = result->Fetch()[0].GetUInt32();
+
+                // load the permanently unlocked icons
+                std::ostringstream os;
+                os << "SELECT icon FROM poker_icon_owned WHERE guid = " << player->GetGUID().GetCounter();
+                if (QueryResult result = CharacterDatabase.QueryNoRetry(os.str().c_str()))
+                    do { s->ownedIcons.insert(result->Fetch()[0].GetUInt32()); } while (result->NextRow());
             }
             _seats.push_back(s);
             SortSeats();   // keep the vector in table (slot) order so blinds/action rotate correctly
@@ -988,7 +1106,21 @@ namespace
             BroadcastState();
         }
 
-        // store the player's chosen seat icon and push it out to every client
+        // send the player's permanently unlocked icons so the picker can grey the rest
+        void SendOwnedIcons(Player* player)
+        {
+            PokerSeat* s = FindByPlayer(player->GetGUID());
+            if (!s)
+                return;
+            std::ostringstream ss;
+            ss << "OWNED";
+            for (uint32 icon : s->ownedIcons)
+                ss << " " << icon;
+            SendPokerAddon(player, ss.str());
+        }
+
+        // select an icon the player may use: their own class/race, one they own, or none.
+        // Unowned icons must be bought with ICONBUY first.
         void HandleIcon(Player* player, uint32 index)
         {
             PokerSeat* s = FindByPlayer(player->GetGUID());
@@ -996,12 +1128,72 @@ namespace
                 return;
             if (index > 65535)
                 index = 65535;
+            if (!IsValidPokerIcon(s, index))
+            {
+                SendDeny(player, "ICONBAD");
+                return;
+            }
+            if (index == s->icon)
+                return;   // already selected
+
+            if (!IsFreePokerIcon(player, index) && s->ownedIcons.find(index) == s->ownedIcons.end())
+            {
+                SendDeny(player, "ICONBUY");
+                return;
+            }
+
             s->icon = index;
-            std::ostringstream ss;
-            ss << "REPLACE INTO poker_icon (guid, icon) VALUES ("
-               << player->GetGUID().GetCounter() << ", " << index << ")";
-            CharacterDatabase.Execute(ss.str().c_str());
+            g_pokerTransaction->PAppend("REPLACE INTO poker_icon (guid, icon) VALUES ({}, {})",
+                player->GetGUID().GetCounter(), index);
             BroadcastState();
+        }
+
+        // buy an icon permanently for 1 gold (free for own class/race and already-owned), then select it
+        void HandleIconBuy(Player* player, uint32 index)
+        {
+            PokerSeat* s = FindByPlayer(player->GetGUID());
+            if (!s)
+                return;
+            if (index > 65535)
+                index = 65535;
+            if (!IsValidPokerIcon(s, index))
+            {
+                SendDeny(player, "ICONBAD");
+                return;
+            }
+
+            bool owned = s->ownedIcons.find(index) != s->ownedIcons.end();
+            if (!IsFreePokerIcon(player, index) && !owned)
+            {
+                TrackWallet(player);
+                if (!player->HasEnoughMoney(10000) || !player->ModifyMoney(-10000))
+                {
+                    SendDeny(player, "ICONGOLD");
+                    return;
+                }
+                s->ownedIcons.insert(index);
+                g_pokerTransaction->PAppend("INSERT IGNORE INTO poker_icon_owned (guid, icon) VALUES ({}, {})",
+                    player->GetGUID().GetCounter(), index);
+            }
+
+            if (index != s->icon)
+            {
+                s->icon = index;
+                g_pokerTransaction->PAppend("REPLACE INTO poker_icon (guid, icon) VALUES ({}, {})",
+                    player->GetGUID().GetCounter(), index);
+            }
+            BroadcastState();
+            SendOwnedIcons(player);
+        }
+
+        // the client tells us how many macro icons its build offers, so we can
+        // reject indices outside its list (0 and the 30 specials are always valid)
+        void HandleIconMax(Player* player, uint32 count)
+        {
+            PokerSeat* s = FindByPlayer(player->GetGUID());
+            if (!s)
+                return;
+            s->macroIconMax = count > 65535 ? 65535 : count;
         }
 
         // true when the player is actually on their chair right now. The seat record alone is stale:
@@ -1054,6 +1246,7 @@ namespace
                 ss << "BACK " << Config().maxBet;   // carry the house cap so the sliders stay correct
                 SendPokerAddon(player, ss.str());
             }
+            SendOwnedIcons(player);
         }
 
         // full private resync: window state, own hole cards, and the current best-hand line
@@ -2166,7 +2359,7 @@ namespace
                     SendPokerAddon(p, msg);
             }
             Award(winner, share);
-            RecordHandAchievements({ { winner, share } }, {});
+            RecordHandAchievements({ { winner, share } }, {}, rake, uncalled);
             {
                 std::string const tail = " won " + MoneyStr(share) + " from the poker pot. Rake: " + MoneyStr(rake) + " (10%).";
                 for (Player* p : ConnectedPlayers())
@@ -2309,7 +2502,7 @@ namespace
                     awards.emplace_back(bestSeat, distributable);
             }
 
-            RecordHandAchievements(awards, scores);
+            RecordHandAchievements(awards, scores, rake, 0);
             struct WonPart { ObjectGuid guid; std::string name; std::string text; };
             std::vector<WonPart> wonParts;   // one entry per award, text is "won X with ..."
             std::vector<ObjectGuid> announced;   // name the winning hand once per player, not per side pot
@@ -2361,8 +2554,13 @@ namespace
         }
 
         void RecordHandAchievements(std::vector<std::pair<PokerSeat*, uint32>> const& awards,
-            std::unordered_map<ObjectGuid, uint32> const& scores)
+            std::unordered_map<ObjectGuid, uint32> const& scores, uint32 rake, uint32 uncalled)
         {
+            uint64 totalCommitted = 0;
+            for (PokerSeat* s : _seats)
+                totalCommitted += s->committed;
+            for (uint32 dead : _forfeit)
+                totalCommitted += dead;
             for (ObjectGuid guid : _achievementParticipants)
             {
                 bool won = std::any_of(awards.begin(), awards.end(), [guid](auto const& award)
@@ -2412,6 +2610,38 @@ namespace
                     }
                 }
                 RecordPokerResult(guid, won, flags);
+
+                if (awards.empty())
+                    continue;   // void/stranded hand: not a played contest
+
+                PokerStatDelta d;
+                d.played = 1;
+                uint32 award = 0;
+                for (auto const& a : awards)
+                    if (a.first->playerGuid == guid)
+                        award += a.second;
+                // The winner's own unmatched bet is returned, not won; exclude it
+                // from the amount statistics (it is already excluded at showdown).
+                uint32 statAward = award;
+                if (uncalled && statAward)
+                    statAward = statAward > uncalled ? statAward - uncalled : 0;
+                d.amountWon = statAward;
+                d.won = won ? 1 : 0;
+                d.lost = won ? 0 : 1;
+                d.mostGoldWon = statAward;
+                if (seat)
+                {
+                    if (seat->state == SEAT_FOLDED)
+                        d.folded = 1;
+                    if (seat->committed > award)
+                        d.amountLost = seat->committed - award;
+                    if (totalCommitted)
+                        d.rakePaid = uint32((uint64(rake) * seat->committed) / totalCommitted);
+                }
+                uint32& streak = g_pokerWinStreak[guid.GetCounter()];
+                streak = won ? streak + 1 : 0;
+                d.longestStreak = streak;
+                RecordPokerStats(guid.GetCounter(), d);
             }
             _achievementParticipants.clear();
         }
@@ -2533,7 +2763,7 @@ namespace
             // (escrow included) instead of stranding it for the destructor to drop
             if (InHand() && NonFoldedCount() == 0)
             {
-                RecordHandAchievements({}, {});
+                RecordHandAchievements({}, {}, 0, 0);
                 _refundLedger.Settle();
                 uint32 stranded = PotTotal();
                 _forfeit.clear();
@@ -2719,12 +2949,12 @@ namespace
                 return false;
             }
             QueryResult engines = CharacterDatabase.QueryNoRetry("SELECT COUNT(*) FROM information_schema.tables "
-                "WHERE table_schema = DATABASE() AND table_name IN ('characters', 'mail', 'poker_refund_escrow', 'character_achievement', 'character_achievement_progress') "
+                "WHERE table_schema = DATABASE() AND table_name IN ('characters', 'mail', 'poker_refund_escrow', 'character_achievement', 'character_achievement_progress', 'poker_icon_owned') "
                 "AND engine = 'InnoDB'");
-            if (!engines || engines->Fetch()[0].GetUInt32() != 5)
+            if (!engines || engines->Fetch()[0].GetUInt32() != 6)
             {
-                TC_LOG_ERROR("misc", "Poker disabled: characters, mail, poker_refund_escrow and native achievement tables must exist and use InnoDB. "
-                    "Install poker_refund_escrow.sql and poker_achievements.sql in the character database.");
+                TC_LOG_ERROR("misc", "Poker disabled: characters, mail, poker_refund_escrow, poker_icon_owned and native achievement tables must exist and use InnoDB. "
+                    "Install poker_refund_escrow.sql, poker_icon.sql and poker_achievements.sql in the character database.");
                 return false;
             }
             if (!ValidatePokerAchievements())
@@ -2963,14 +3193,21 @@ namespace
                 return;
             }
 
-            uint32 tableId = TableIdForChair(go->GetSpawnId());
+            // a chair belongs to a table only if the database maps it; an unmapped chair has no table
+            auto chairMapping = g_chairTable.find(go->GetSpawnId());
+            if (chairMapping == g_chairTable.end())
+            {
+                SysMsg(player, "This poker chair is not assigned to a table.");
+                return;
+            }
+            uint32 tableId = chairMapping->second;
 
             if (PokerTable* existing = FindByPlayer(player->GetGUID()))
             {
                 // already seated: right-clicking a free chair at the same table moves them there
                 if (existing->Key() == tableId)
                 {
-                    existing->PopulateChairs(go, tableId, CHAIR_ENTRY, 12.0f);
+                    existing->PopulateChairs(go, tableId);
                     existing->HandleMoveSeat(player, go->GetSpawnId());
                 }
                 else
@@ -2992,7 +3229,7 @@ namespace
                 _tables[tableId] = table;
             }
             // discover this table's chairs (grouped by `poker_chair`) and order the slots
-            table->PopulateChairs(go, tableId, CHAIR_ENTRY, 12.0f);
+            table->PopulateChairs(go, tableId);
 
             if (table->SeatCount() >= table->Config().maxSeats)
             {
@@ -3029,6 +3266,7 @@ namespace
             ss << "OPEN " << table->Config().minBuyIn << " " << table->Config().maxBuyIn
                << " " << table->Config().smallBlind << " " << table->Config().bigBlind << " " << table->Config().maxBet;
             SendPokerAddon(player, ss.str());
+            table->SendOwnedIcons(player);
             table->BroadcastState();
         }
 
@@ -3059,7 +3297,7 @@ namespace
             std::string cmd;
             ss >> cmd;
             uint32 arg = 0;
-            if (cmd == "RAISE" || cmd == "MOVE" || cmd == "BUYIN" || cmd == "SITOUT" || cmd == "ICON")
+            if (cmd == "RAISE" || cmd == "MOVE" || cmd == "BUYIN" || cmd == "SITOUT" || cmd == "ICON" || cmd == "ICONBUY" || cmd == "ICONMAX")
                 if (!(ss >> arg))
                     return;
 
@@ -3100,6 +3338,10 @@ namespace
                 table->HandleSitOut(player, arg != 0);
             else if (cmd == "ICON")
                 table->HandleIcon(player, arg);
+            else if (cmd == "ICONBUY")
+                table->HandleIconBuy(player, arg);
+            else if (cmd == "ICONMAX")
+                table->HandleIconMax(player, arg);
             else if (cmd == "LEAVE")
                 table->HandleLeave(player);
         }
@@ -3266,6 +3508,7 @@ void AddSC_poker()
     // Register the poker criteria range before any player can load, so ordinary
     // game events can never advance it.
     AchievementMgr::RegisterExternalCriteriaRange(PokerAchievements::FirstCriteria, PokerAchievements::LastCriteria);
+    AchievementMgr::RegisterExternalCriteriaRange(PokerAchievements::FirstStatCriteria, PokerAchievements::LastStatCriteria);
     new PokerChairScript();
     new PokerPlayerScript();
     new PokerWorldScript();
