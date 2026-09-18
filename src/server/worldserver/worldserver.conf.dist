@@ -3251,6 +3251,24 @@ AlwaysMaxWeaponSkill = 0
 PvPToken.Enable = 0
 
 #
+#    PvP.AttackLevelDiff
+#        Description: Maximum level difference for initiating player-vs-player attacks.
+#                     A player may attack any target whose level is higher than
+#                     (their own level - value), but cannot attack a player
+#                     value or more levels below them. Lower-level players can always
+#                     attack higher-level players.
+#                     A higher-level player may attack a lower-level player who
+#                     attacked them first; this retaliation right is lost when the
+#                     lower-level player dies.
+#                     Logging out also clears that player's aggression record.
+#                     Pets use their controlling player's level and aggression.
+#                     Duels, battlegrounds and arenas are exempt.
+#        Default:     5 - (cannot attack players 5+ levels below)
+#                     0 - (Disabled, no restriction)
+
+PvP.AttackLevelDiff = 5
+
+#
 #    PvPToken.MapAllowType
 #        Description: Define where characters can receive tokens.
 #        Default:     4 - (All maps)

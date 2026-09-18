@@ -1406,6 +1406,12 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         void SetTarget(ObjectGuid const& /*guid*/) override { } /// Used for serverside target changes, does not apply to players
         void SetSelection(ObjectGuid const& guid) { SetGuidValue(UNIT_FIELD_TARGET, guid); }
 
+        // PvP retaliation / target restrictions (level-gap anti-griefing)
+        void RecordPvPAttack(Player* target);
+        bool HasAttackedPlayer(ObjectGuid const& guid) const { return m_attackedPlayers.find(guid) != m_attackedPlayers.end(); }
+        void ClearAttackedPlayers();
+        bool CanPvPTarget(Player const* target) const;
+
         void SendMailResult(uint32 mailId, MailResponseType mailAction, MailResponseResult mailError, uint32 equipError = 0, ObjectGuid::LowType item_guid = 0, uint32 item_count = 0) const;
         void SendNewMail() const;
         void UpdateNextMailTimeAndUnreads();
@@ -2381,6 +2387,8 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
 
         RewardedQuestSet m_RewardedQuests;
         QuestStatusSaveMap m_RewardedQuestsSave;
+
+        std::set<ObjectGuid> m_attackedPlayers;
 
         SkillStatusMap mSkillStatus;
 

@@ -733,6 +733,12 @@ bool Unit::HasBreakableByDamageCrowdControlAura(Unit* excludeCasterChannel) cons
     // Hook for OnDamage Event
     sScriptMgr->OnDamage(attacker, victim, damage);
 
+    // Also cover periodic and scripted damage, and record lethal hits before
+    // death processing. Resolve both owners so pets cannot bypass retaliation.
+    if (attacker && attacker != victim)
+        if (Player* attackerPlayer = attacker->GetAffectingPlayer())
+            attackerPlayer->RecordPvPAttack(victim->GetAffectingPlayer());
+
     // Signal to pets that their owner was attacked - except when DOT.
     if (attacker != victim && damagetype != DOT)
     {
@@ -8694,6 +8700,11 @@ void Unit::setDeathState(DeathState s)
         ClearAllReactives();
         ClearDiminishings();
 
+        // clear PvP retaliation records so higher-level players lose the right to
+        // attack this player once they die and respawn
+        if (Player* player = ToPlayer())
+            player->ClearAttackedPlayers();
+
         // Don't clear the movement if the Unit was on a vehicle as we are exiting now
         if (!isOnVehicle)
         {
@@ -8730,6 +8741,10 @@ void Unit::AtEngage(Unit* /*target*/)
 
 void Unit::AtTargetAttacked(Unit* target, bool canInitialAggro)
 {
+    // Includes melee attempts and hostile non-damaging spells (e.g. CC).
+    if (Player* attackerPlayer = GetAffectingPlayer())
+        attackerPlayer->RecordPvPAttack(target->GetAffectingPlayer());
+
     if (!target->IsEngaged() && !canInitialAggro)
         return;
     target->EngageWithTarget(this);

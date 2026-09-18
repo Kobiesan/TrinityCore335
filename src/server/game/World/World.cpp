@@ -1474,6 +1474,14 @@ void World::LoadConfigSettings(bool reload)
     if (m_int_configs[CONFIG_PVP_TOKEN_COUNT] < 1)
         m_int_configs[CONFIG_PVP_TOKEN_COUNT] = 1;
 
+    int32 attackLevelDiff = sConfigMgr->GetIntDefault("PvP.AttackLevelDiff", 5);
+    if (attackLevelDiff < 0 || attackLevelDiff > 255)
+    {
+        TC_LOG_ERROR("server.loading", "PvP.AttackLevelDiff must be between 0 and 255. Using 5 instead.");
+        attackLevelDiff = 5;
+    }
+    m_int_configs[CONFIG_PVP_ATTACK_LEVEL_DIFF] = attackLevelDiff;
+
     m_bool_configs[CONFIG_ALLOW_TRACK_BOTH_RESOURCES] = sConfigMgr->GetBoolDefault("AllowTrackBothResources", false);
     m_bool_configs[CONFIG_NO_RESET_TALENT_COST] = sConfigMgr->GetBoolDefault("NoResetTalentsCost", false);
     m_bool_configs[CONFIG_SHOW_KICK_IN_WORLD] = sConfigMgr->GetBoolDefault("ShowKickInWorld", false);

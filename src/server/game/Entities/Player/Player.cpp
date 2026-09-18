@@ -1284,6 +1284,8 @@ void Player::setDeathState(DeathState s)
 
         ClearResurrectRequestData();
 
+        ResetContestedPvP();
+
         //FIXME: is pet dismissed at dying or releasing spirit? if second, add setDeathState(DEAD) to HandleRepopRequest and define pet unsummon here with (s == DEAD)
         RemovePet(nullptr, PET_SAVE_NOT_IN_SLOT, true);
 
@@ -22402,6 +22404,43 @@ Player* Player::GetSelectedPlayer() const
     if (!selectionGUID.IsEmpty())
         return ObjectAccessor::FindConnectedPlayer(selectionGUID);
     return nullptr;
+}
+
+void Player::RecordPvPAttack(Player* target)
+{
+    // World aggression must not leak out of a duel or battleground, or be
+    // recreated by lingering effects after the aggressor has died.
+    if (!target || target == this || !IsAlive() || !target->IsAlive()
+        || InBattleground() || target->InBattleground()
+        || (duel && duel->Opponent == target) || !CanPvPTarget(target))
+        return;
+
+    m_attackedPlayers.insert(target->GetGUID());
+}
+
+void Player::ClearAttackedPlayers()
+{
+    m_attackedPlayers.clear();
+}
+
+bool Player::CanPvPTarget(Player const* target) const
+{
+    uint32 const levelDiff = sWorld->getIntConfig(CONFIG_PVP_ATTACK_LEVEL_DIFF);
+    if (!levelDiff)
+        return true;
+
+    // No restrictions in battlegrounds/arenas or during duels.
+    if (InBattleground() || InArena())
+        return true;
+    if (duel && duel->Opponent == target && duel->State == DUEL_STATE_IN_PROGRESS)
+        return true;
+
+    // Allowed if the target is higher than (my level - diff).
+    if (int32(target->GetLevel()) > int32(GetLevel()) - int32(levelDiff))
+        return true;
+
+    // Or if the target attacked me first (retaliation, cleared on their death).
+    return target->HasAttackedPlayer(GetGUID());
 }
 
 void Player::SetGroup(Group* group, int8 subgroup)

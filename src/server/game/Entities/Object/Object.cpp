@@ -2985,6 +2985,13 @@ bool WorldObject::IsValidAttackTarget(WorldObject const* target, SpellInfo const
     // additional checks - only PvP case
     if (playerAffectingAttacker && playerAffectingTarget)
     {
+        // Anti-griefing: a player can attack anyone higher than (attacker level - diff),
+        // but not a target diff or more levels below them, unless that target attacked
+        // them first (retaliation). Lower-level players can always attack higher-level
+        // players regardless of the difference.
+        if (!playerAffectingAttacker->CanPvPTarget(playerAffectingTarget))
+            return false;
+
         if (playerAffectingTarget->IsPvP())
             return true;
 
