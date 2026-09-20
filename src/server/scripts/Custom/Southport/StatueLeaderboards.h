@@ -1,0 +1,6 @@
+#ifndef TRINITY_SOUTHPORT_STATUES_H
+#define TRINITY_SOUTHPORT_STATUES_H
+
+void AddSC_southport_statues();
+
+#endif // TRINITY_SOUTHPORT_STATUES_H

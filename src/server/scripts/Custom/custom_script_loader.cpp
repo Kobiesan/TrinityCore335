@@ -17,6 +17,7 @@
 
 #include "Poker/Poker.h"
 #include "Southport/SouthportGuard.h"
+#include "Southport/StatueLeaderboards.h"
 
 // This is where scripts' loading functions should be declared:
 void AddSC_GOMove_commandscript();
@@ -28,4 +29,5 @@ void AddCustomScripts()
     AddSC_GOMove_commandscript();
     AddSC_poker();
     AddSC_southport_guard();
+    AddSC_southport_statues();
 }
