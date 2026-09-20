@@ -881,7 +881,10 @@ bool Unit::HasBreakableByDamageCrowdControlAura(Unit* excludeCasterChannel) cons
                     bg->UpdatePlayerScore(killer, SCORE_DAMAGE_DONE, damage);
 
             killer->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_DAMAGE_DONE, health > damage ? damage : health, 0, victim);
-            killer->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_HIT_DEALT, damage);
+
+            // Damage dealt from a vehicle does not count toward the largest-hit stat.
+            if (!attacker->IsVehicle() && !attacker->GetVehicle())
+                killer->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_HIT_DEALT, damage);
         }
     }
 
