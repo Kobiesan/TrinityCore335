@@ -16,8 +16,11 @@
  */
 
 #include "SouthportGuard.h"
+#include "CellImpl.h"
 #include "Creature.h"
 #include "GameTime.h"
+#include "GridNotifiers.h"
+#include "GridNotifiersImpl.h"
 #include "GuardAI.h"
 #include "MotionMaster.h"
 #include "MovementGenerator.h"
@@ -41,11 +44,33 @@ namespace
     constexpr uint32 SALUTE_COOLDOWN_MS = 2000;
     constexpr uint32 SALUTE_PAUSE_MS    = 1200;   // how long a patrolling marine holds still to salute
     constexpr uint32 SALUTE_RESTORE_MS  = 1600;   // turn back to the original facing once the salute ends
+
+    // Guards are hostile to players carrying PLAYER_FLAGS_CONTESTED_PVP (involved in PvP
+    // combat), but the core only re-checks that in MoveInLineOfSight, which fires on
+    // movement. Poll instead so a player who starts a fight while standing still is caught.
+    constexpr uint32 AGGRO_SCAN_INTERVAL_MS = 1000;
+    constexpr float  AGGRO_SCAN_RANGE       = 30.0f;
 }
 
 struct npc_southport_guard : public GuardAI
 {
     npc_southport_guard(Creature* creature) : GuardAI(creature) { }
+
+    void UpdateAI(uint32 diff) override
+    {
+        if (!me->IsEngaged() && me->IsAlive() && !me->HasReactState(REACT_PASSIVE))
+        {
+            if (_scanTimer <= diff)
+            {
+                _scanTimer = AGGRO_SCAN_INTERVAL_MS;
+                ScanForContestedPlayers();
+            }
+            else
+                _scanTimer -= diff;
+        }
+
+        GuardAI::UpdateAI(diff);
+    }
 
     void WaypointReached(uint32 waypointId, uint32 pathId) override
     {
@@ -113,7 +138,33 @@ struct npc_southport_guard : public GuardAI
     }
 
 private:
+    // Only looks at the grid cells around the marine, not the whole map, so the cost stays
+    // flat as the continent population grows.
+    void ScanForContestedPlayers()
+    {
+        std::list<Player*> players;
+        Trinity::AnyPlayerInObjectRangeCheck checker(me, AGGRO_SCAN_RANGE);
+        Trinity::PlayerListSearcher<Trinity::AnyPlayerInObjectRangeCheck> searcher(me, players, checker);
+        Cell::VisitWorldObjects(me, searcher, AGGRO_SCAN_RANGE);
+
+        for (Player* player : players)
+        {
+            if (!player->IsAlive())
+                continue;
+
+            if (!player->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_CONTESTED_PVP))
+                continue;
+
+            if (!me->CanStartAttack(player, false))
+                continue;
+
+            me->EngageWithTarget(player);
+            break;
+        }
+    }
+
     uint32 _saluteReadyAt = 0;
+    uint32 _scanTimer = 0;
 };
 
 void AddSC_southport_guard()
