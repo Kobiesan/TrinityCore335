@@ -64,6 +64,8 @@ AuctionHouseObject* AuctionHouseMgr::GetAuctionsMap(uint32 factionTemplateId)
     FactionTemplateEntry const* uEntry = sFactionTemplateStore.LookupEntry(factionTemplateId);
     if (!uEntry)
         return &mNeutralAuctions;
+    else if (uEntry->ID == SOUTHPORT_FACTION_TEMPLATE)                  // custom: Southport (TBV WoW)
+        return &mSouthportAuctions;
     else if (uEntry->FactionGroup & FACTION_MASK_ALLIANCE)
         return &mAllianceAuctions;
     else if (uEntry->FactionGroup & FACTION_MASK_HORDE)
@@ -81,6 +83,7 @@ AuctionHouseObject* AuctionHouseMgr::GetAuctionsMapByHouseId(uint8 auctionHouseI
     {
         case AUCTIONHOUSE_ALLIANCE : return &mAllianceAuctions;
         case AUCTIONHOUSE_HORDE : return &mHordeAuctions;
+        case AUCTIONHOUSE_SOUTHPORT : return &mSouthportAuctions;       // custom: Southport (TBV WoW)
         default : return &mNeutralAuctions;
     }
 }
@@ -564,6 +567,7 @@ void AuctionHouseMgr::Update()
     mHordeAuctions.Update();
     mAllianceAuctions.Update();
     mNeutralAuctions.Update();
+    mSouthportAuctions.Update();                                        // custom: Southport (TBV WoW)
 }
 
 AuctionHouseEntry const* AuctionHouseMgr::GetAuctionHouseEntry(uint32 factionTemplateId)
@@ -578,6 +582,8 @@ AuctionHouseEntry const* AuctionHouseMgr::GetAuctionHouseEntry(uint32 factionTem
         FactionTemplateEntry const* u_entry = sFactionTemplateStore.LookupEntry(factionTemplateId);
         if (!u_entry)
             houseid = AUCTIONHOUSE_NEUTRAL; // goblin auction house
+        else if (u_entry->ID == SOUTHPORT_FACTION_TEMPLATE)             // custom: Southport (TBV WoW)
+            houseid = AUCTIONHOUSE_SOUTHPORT;
         else if (u_entry->FactionGroup & FACTION_MASK_ALLIANCE)
             houseid = AUCTIONHOUSE_ALLIANCE; // human auction house
         else if (u_entry->FactionGroup & FACTION_MASK_HORDE)

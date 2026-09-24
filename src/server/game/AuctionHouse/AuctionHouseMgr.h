@@ -69,8 +69,13 @@ enum AuctionHouses
 {
     AUCTIONHOUSE_ALLIANCE       = 2,
     AUCTIONHOUSE_HORDE          = 6,
-    AUCTIONHOUSE_NEUTRAL        = 7
+    AUCTIONHOUSE_NEUTRAL        = 7,
+    AUCTIONHOUSE_SOUTHPORT      = 8     // custom: Southport (TBV WoW)
 };
+
+// custom (TBV WoW): Southport's FactionTemplate id (Faction 2000). Routed to its
+// own auction house so the free port has a market separate from the goblin one.
+uint32 constexpr SOUTHPORT_FACTION_TEMPLATE = 2238;
 
 enum AuctionEntryFlag : uint8
 {
@@ -212,6 +217,7 @@ class TC_GAME_API AuctionHouseMgr
         AuctionHouseObject mHordeAuctions;
         AuctionHouseObject mAllianceAuctions;
         AuctionHouseObject mNeutralAuctions;
+        AuctionHouseObject mSouthportAuctions;              // custom: Southport (TBV WoW)
 
         std::map<ObjectGuid, AuctionPair> pendingAuctionMap;
 
