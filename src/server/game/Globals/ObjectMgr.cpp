@@ -8048,10 +8048,12 @@ void ObjectMgr::LoadReputationOnKill()
 
     uint32 count = 0;
 
-    //                                                0            1                     2
-    QueryResult result = WorldDatabase.Query("SELECT creature_id, RewOnKillRepFaction1, RewOnKillRepFaction2, "
-    //   3             4             5                   6             7             8                   9
-        "IsTeamAward1, MaxStanding1, RewOnKillRepValue1, IsTeamAward2, MaxStanding2, RewOnKillRepValue2, TeamDependent "
+    //                                                0            1                     2                     3
+    QueryResult result = WorldDatabase.Query("SELECT creature_id, RewOnKillRepFaction1, RewOnKillRepFaction2, RewOnKillRepFaction3, "
+    //   4             5             6                   7             8             9                   10            11            12
+        "IsTeamAward1, MaxStanding1, RewOnKillRepValue1, IsTeamAward2, MaxStanding2, RewOnKillRepValue2, IsTeamAward3, MaxStanding3, RewOnKillRepValue3, "
+    //   13
+        "TeamDependent "
         "FROM creature_onkill_reputation");
 
     if (!result)
@@ -8069,13 +8071,17 @@ void ObjectMgr::LoadReputationOnKill()
         ReputationOnKillEntry repOnKill;
         repOnKill.RepFaction1          = fields[1].GetInt16();
         repOnKill.RepFaction2          = fields[2].GetInt16();
-        repOnKill.IsTeamAward1        = fields[3].GetBool();
-        repOnKill.ReputationMaxCap1  = fields[4].GetUInt8();
-        repOnKill.RepValue1            = fields[5].GetInt32();
-        repOnKill.IsTeamAward2        = fields[6].GetBool();
-        repOnKill.ReputationMaxCap2  = fields[7].GetUInt8();
-        repOnKill.RepValue2            = fields[8].GetInt32();
-        repOnKill.TeamDependent       = fields[9].GetBool();
+        repOnKill.RepFaction3          = fields[3].GetInt16();
+        repOnKill.IsTeamAward1        = fields[4].GetBool();
+        repOnKill.ReputationMaxCap1  = fields[5].GetUInt8();
+        repOnKill.RepValue1            = fields[6].GetInt32();
+        repOnKill.IsTeamAward2        = fields[7].GetBool();
+        repOnKill.ReputationMaxCap2  = fields[8].GetUInt8();
+        repOnKill.RepValue2            = fields[9].GetInt32();
+        repOnKill.IsTeamAward3        = fields[10].GetBool();
+        repOnKill.ReputationMaxCap3  = fields[11].GetUInt8();
+        repOnKill.RepValue3            = fields[12].GetInt32();
+        repOnKill.TeamDependent       = fields[13].GetBool();
 
         if (!GetCreatureTemplate(creature_id))
         {
@@ -8099,6 +8105,16 @@ void ObjectMgr::LoadReputationOnKill()
             if (!factionEntry2)
             {
                 TC_LOG_ERROR("sql.sql", "Faction (faction.dbc) {} does not exist but is used in `creature_onkill_reputation`", repOnKill.RepFaction2);
+                continue;
+            }
+        }
+
+        if (repOnKill.RepFaction3)
+        {
+            FactionEntry const* factionEntry3 = sFactionStore.LookupEntry(repOnKill.RepFaction3);
+            if (!factionEntry3)
+            {
+                TC_LOG_ERROR("sql.sql", "Faction (faction.dbc) {} does not exist but is used in `creature_onkill_reputation`", repOnKill.RepFaction3);
                 continue;
             }
         }

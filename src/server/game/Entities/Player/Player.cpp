@@ -6446,6 +6446,17 @@ void Player::RewardReputation(Unit* victim, float rate)
         if (factionEntry2)
             GetReputationMgr().ModifyReputation(factionEntry2, donerep2, current_reputation_rank2 > Rep->ReputationMaxCap2);
     }
+
+    if (Rep->RepFaction3 && !Rep->TeamDependent)
+    {
+        int32 donerep3 = CalculateReputationGain(REPUTATION_SOURCE_KILL, victim->GetLevel(), Rep->RepValue3, ChampioningFaction ? ChampioningFaction : Rep->RepFaction3);
+        donerep3 = int32(donerep3 * rate);
+
+        FactionEntry const* factionEntry3 = sFactionStore.LookupEntry(ChampioningFaction ? ChampioningFaction : Rep->RepFaction3);
+        uint32 current_reputation_rank3 = GetReputationMgr().GetRank(factionEntry3);
+        if (factionEntry3)
+            GetReputationMgr().ModifyReputation(factionEntry3, donerep3, current_reputation_rank3 > Rep->ReputationMaxCap3);
+    }
 }
 
 // Calculate how many reputation points player gain with the quest
@@ -24657,6 +24668,7 @@ void Player::StoreLootItem(uint8 lootSlot, Loot* loot)
         --loot->unlootedCount;
 
         SendNewItem(newitem, uint32(item->count), false, false, true);
+        sScriptMgr->OnPlayerLootItem(this, newitem, loot);
         UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_LOOT_ITEM, item->itemid, item->count);
         UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_LOOT_TYPE, GetLootTypeForClient(loot->loot_type), item->count);
         UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_LOOT_EPIC_ITEM, item->itemid, item->count);
