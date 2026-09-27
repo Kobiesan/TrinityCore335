@@ -21,6 +21,7 @@
 
 // This is where scripts' loading functions should be declared:
 void AddSC_GOMove_commandscript();
+void AddSC_southport_containers();
 void AddSC_southport_manifests();
 
 // The name of this function should match:
@@ -29,6 +30,7 @@ void AddCustomScripts()
 {
     AddSC_GOMove_commandscript();
     AddSC_poker();
+    AddSC_southport_containers();
     AddSC_southport_guard();
     AddSC_southport_manifests();
     AddSC_southport_statues();

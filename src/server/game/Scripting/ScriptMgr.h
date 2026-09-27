@@ -44,6 +44,7 @@ class Group;
 class InstanceMap;
 class InstanceScript;
 class Item;
+class Loot;
 class Map;
 class ModuleReference;
 class OutdoorPvP;
@@ -721,6 +722,9 @@ class TC_GAME_API PlayerScript : public ScriptObject
         // Called when a player completes a movie
         virtual void OnMovieComplete(Player* player, uint32 movieId);
 
+        // Called when a player loots an item from a loot (creature, container, etc.)
+        virtual void OnPlayerLootItem(Player* player, Item* item, Loot* loot);
+
 };
 
 class TC_GAME_API AccountScript : public ScriptObject
@@ -1036,6 +1040,7 @@ class TC_GAME_API ScriptMgr
         void OnQuestStatusChange(Player* player, uint32 questId);
         void OnMovieComplete(Player* player, uint32 movieId);
         void OnPlayerRepop(Player* player);
+        void OnPlayerLootItem(Player* player, Item* item, Loot* loot);
 
     public: /* AccountScript */
 

@@ -1986,6 +1986,11 @@ void ScriptMgr::OnMovieComplete(Player* player, uint32 movieId)
     FOREACH_SCRIPT(PlayerScript)->OnMovieComplete(player, movieId);
 }
 
+void ScriptMgr::OnPlayerLootItem(Player* player, Item* item, Loot* loot)
+{
+    FOREACH_SCRIPT(PlayerScript)->OnPlayerLootItem(player, item, loot);
+}
+
 // Account
 void ScriptMgr::OnAccountLogin(uint32 accountId)
 {
@@ -2703,6 +2708,10 @@ void PlayerScript::OnPlayerRepop(Player* /*player*/)
 }
 
 void PlayerScript::OnMovieComplete(Player* /*player*/, uint32 /*movieId*/)
+{
+}
+
+void PlayerScript::OnPlayerLootItem(Player* /*player*/, Item* /*item*/, Loot* /*loot*/)
 {
 }
 
