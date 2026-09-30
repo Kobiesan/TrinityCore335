@@ -170,11 +170,11 @@ namespace
                     rows.emplace_back(fields[0].GetString(), FormatMoney(fields[1].GetUInt64()));
                 } while (result->NextRow());
             }
-            Publish(PAGE_MERCHANT_TALLY, BuildBoard("THE MERCHANT'S TALLY", "Total gold held.", rows));
+            Publish(PAGE_MERCHANT_TALLY, BuildBoard("WALL OF FORTUNE", "Total gold held.", rows));
         }
 
         // Achievement points
-        Publish(PAGE_DEED_ROLL, BuildBoard("THE ROLL OF HONOUR", "Most achievement points earned.", ReadProgressBoard(CRIT_ACHIEVEMENT_POINTS, joinFilter)));
+        Publish(PAGE_DEED_ROLL, BuildBoard("WALL OF DEEDS", "Most achievement points earned.", ReadProgressBoard(CRIT_ACHIEVEMENT_POINTS, joinFilter)));
 
         // PvP kills
         {
@@ -188,7 +188,7 @@ namespace
                     rows.emplace_back(fields[0].GetString(), WithCommas(fields[1].GetUInt64()));
                 } while (result->NextRow());
             }
-            Publish(PAGE_BLOODY_TALLY, BuildBoard("THE RED LEDGER", "Most player kills.", rows));
+            Publish(PAGE_BLOODY_TALLY, BuildBoard("WALL OF THE FALLEN", "Most player kills.", rows));
         }
 
         // Time played
@@ -203,10 +203,10 @@ namespace
                     rows.emplace_back(fields[0].GetString(), FormatDuration(fields[1].GetUInt64()));
                 } while (result->NextRow());
             }
-            Publish(PAGE_LONG_WATCH, BuildBoard("THE LONG WATCH", "Total time played.", rows));
+            Publish(PAGE_LONG_WATCH, BuildBoard("WALL OF ENDURANCE", "Total time played.", rows));
         }
 
-        // High Water Mark: highest Prestige rank, then highest level. A rank-1
+        // The Prestige Roll: highest Prestige rank, then highest level. A rank-1
         // character who has reset to level 1 still outranks a rank-0 level 20.
         {
             std::vector<BoardRow> rows;
@@ -225,14 +225,14 @@ namespace
                     rows.emplace_back(fields[0].GetString(), mark);
                 } while (result->NextRow());
             }
-            Publish(PAGE_HIGH_WATER_MARK, BuildBoard("THE HIGH WATER MARK", "Highest Prestige rank, then level.", rows));
+            Publish(PAGE_HIGH_WATER_MARK, BuildBoard("WALL OF REBIRTH", "Highest Prestige rank, then level.", rows));
         }
 
         // Largest hit
-        Publish(PAGE_HAMMERS_LEDGER, BuildBoard("THE HAMMER'S LEDGER", "Highest damage dealt in a single hit or spell.", ReadProgressBoard(CRIT_HIGHEST_HIT, joinFilter)));
+        Publish(PAGE_HAMMERS_LEDGER, BuildBoard("WALL OF THE HAMMER", "Highest damage dealt in a single hit or spell.", ReadProgressBoard(CRIT_HIGHEST_HIT, joinFilter)));
 
         // Largest heal
-        Publish(PAGE_MERCY_LEDGER, BuildBoard("THE MERCY LEDGER", "Highest healing done in a single cast.", ReadProgressBoard(CRIT_HIGHEST_HEAL, joinFilter)));
+        Publish(PAGE_MERCY_LEDGER, BuildBoard("WALL OF MERCY", "Highest healing done in a single cast.", ReadProgressBoard(CRIT_HIGHEST_HEAL, joinFilter)));
 
         // Patrons (donors), in-universe. `guid` links the row to the character,
         // so the live name is shown; `name` is only a fallback snapshot.
@@ -249,7 +249,7 @@ namespace
                     rows.emplace_back(fields[0].GetString(), std::string());
                 } while (result->NextRow());
             }
-            Publish(PAGE_PATRONS_ROLL, BuildBoard("THE PATRONS' ROLL", "Those who keep the harbour afloat.", rows));
+            Publish(PAGE_PATRONS_ROLL, BuildBoard("WALL OF PATRONS", "Those who keep the harbour afloat.", rows));
         }
 
         sObjectMgr->LoadPageTexts();
