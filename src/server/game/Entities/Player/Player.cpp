@@ -5451,6 +5451,9 @@ bool Player::UpdateSkill(uint32 skill_id, uint32 step)
         if (itr->second.uState != SKILL_NEW)
             itr->second.uState = SKILL_CHANGED;
 
+        if (skill_id == SKILL_RIDING)
+            UpdateSpeed(MOVE_RUN);
+
         UpdateSkillEnchantments(skill_id, value, new_value);
         UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_REACH_SKILL_LEVEL, skill_id);
         return true;
@@ -5811,6 +5814,8 @@ void Player::SetSkill(uint32 id, uint16 step, uint16 newVal, uint16 maxVal)
                 UpdateSkillEnchantments(id, currVal, newVal);
             UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_REACH_SKILL_LEVEL, id);
             UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_LEARN_SKILL_LEVEL, id);
+            if (id == SKILL_RIDING)
+                UpdateSpeed(MOVE_RUN);
         }
         else                                                //remove
         {
@@ -5829,6 +5834,9 @@ void Player::SetSkill(uint32 id, uint16 step, uint16 newVal, uint16 maxVal)
                 itr->second.uState = SKILL_DELETED;
             else
                 mSkillStatus.erase(itr);
+
+            if (id == SKILL_RIDING)
+                UpdateSpeed(MOVE_RUN);
 
             // remove all spells that related to this skill
             if (std::vector<SkillLineAbilityEntry const*> const* skillLineAbilities = GetSkillLineAbilitiesBySkill(id))
@@ -5886,6 +5894,8 @@ void Player::SetSkill(uint32 id, uint16 step, uint16 newVal, uint16 maxVal)
                 LearnSkillRewardedSpells(id, newVal);
                 UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_REACH_SKILL_LEVEL, id);
                 UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_LEARN_SKILL_LEVEL, id);
+                if (id == SKILL_RIDING)
+                    UpdateSpeed(MOVE_RUN);
                 return;
             }
         }

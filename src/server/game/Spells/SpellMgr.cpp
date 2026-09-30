@@ -1038,10 +1038,8 @@ void SpellMgr::LoadSpellLearnSkills()
                 case SPELL_EFFECT_SKILL:
                     dbc_node.skill = spellEffectInfo.MiscValue;
                     dbc_node.step = spellEffectInfo.CalcValue();
-                    if (dbc_node.skill != SKILL_RIDING)
-                        dbc_node.value = 1;
-                    else
-                        dbc_node.value = dbc_node.step * 75;
+                    // Riding starts at 1 and grows by riding; the rank sets the max (step * 75)
+                    dbc_node.value = 1;
                     dbc_node.maxvalue = dbc_node.step * 75;
                     break;
                 case SPELL_EFFECT_DUAL_WIELD:

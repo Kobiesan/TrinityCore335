@@ -8488,7 +8488,18 @@ void Unit::UpdateSpeed(UnitMoveType mtype)
         {
             if (IsMounted()) // Use on mount auras
             {
-                main_speed_mod  = GetMaxPositiveAuraModifier(SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED);
+                if (IsPlayer())
+                {
+                    // Mount speed from riding skill, piecewise linear: -50% at skill 1,
+                    // normal on-foot speed (0%) at skill 75, then +50% at 300.
+                    int32 riding = ToPlayer()->GetPureSkillValue(SKILL_RIDING);
+                    if (riding <= 75)
+                        main_speed_mod = (riding - 75) * 50 / 74;
+                    else
+                        main_speed_mod = (riding - 75) * 50 / 225;
+                }
+                else
+                    main_speed_mod = GetMaxPositiveAuraModifier(SPELL_AURA_MOD_INCREASE_MOUNTED_SPEED);
                 stack_bonus     = GetTotalAuraMultiplier(SPELL_AURA_MOD_MOUNTED_SPEED_ALWAYS);
                 non_stack_bonus += GetMaxPositiveAuraModifier(SPELL_AURA_MOD_MOUNTED_SPEED_NOT_STACK) / 100.0f;
             }

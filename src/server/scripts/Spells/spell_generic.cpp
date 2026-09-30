@@ -2347,7 +2347,19 @@ private:
             bool const canFly = spellInfo && (spellInfo->CheckLocation(target->GetMapId(), zoneid, areaid, target) == SPELL_CAST_OK);
 
             uint32 mount = 0;
-            switch (target->GetBaseSkillValue(SKILL_RIDING))
+            // riding skill grows continuously, so snap it down to the highest tier reached
+            uint32 riding = target->GetBaseSkillValue(SKILL_RIDING);
+            if (riding >= 300)
+                riding = 300;
+            else if (riding >= 225)
+                riding = 225;
+            else if (riding >= 150)
+                riding = 150;
+            else if (riding >= 75)
+                riding = 75;
+            else
+                riding = 0;
+            switch (riding)
             {
                 case 0:
                     mount = _mount0;

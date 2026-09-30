@@ -24,6 +24,7 @@ void AddSC_GOMove_commandscript();
 void AddSC_southport_containers();
 void AddSC_southport_manifests();
 void AddSC_southport_prestige();
+void AddSC_southport_riding();
 
 // The name of this function should match:
 // void Add${NameOfDirectory}Scripts()
@@ -35,5 +36,6 @@ void AddCustomScripts()
     AddSC_southport_guard();
     AddSC_southport_manifests();
     AddSC_southport_prestige();
+    AddSC_southport_riding();
     AddSC_southport_statues();
 }

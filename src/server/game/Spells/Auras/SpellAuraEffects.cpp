@@ -2628,6 +2628,11 @@ void AuraEffect::HandleAuraMounted(AuraApplication const* aurApp, uint8 mode, bo
         if (mode & AURA_EFFECT_HANDLE_REAL)
             target->RemoveAurasByType(SPELL_AURA_MOUNTED);
     }
+
+    // Mount speed comes from the riding skill (players) via Unit::UpdateSpeed; the
+    // mount spells no longer carry a static mounted-speed aura, so refresh here.
+    if (mode & AURA_EFFECT_HANDLE_REAL)
+        target->UpdateSpeed(MOVE_RUN);
 }
 
 void AuraEffect::HandleAuraAllowFlight(AuraApplication const* aurApp, uint8 mode, bool apply) const
