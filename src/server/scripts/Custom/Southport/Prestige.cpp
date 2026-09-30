@@ -152,7 +152,7 @@ namespace
         AddGossipItemFor(player, GOSSIP_ICON_DOT,
             "Prestige Rank: " + std::to_string(GetRank(player)),
             GOSSIP_SENDER_MAIN, ACTION_MAIN);
-        AddGossipItemFor(player, GOSSIP_ICON_VENDOR, "Browse your wares.",
+        AddGossipItemFor(player, GOSSIP_ICON_VENDOR, "Browse your wares",
             GOSSIP_SENDER_MAIN, ACTION_VENDOR);
 
         if (player->GetLevel() == MAX_LEVEL)
