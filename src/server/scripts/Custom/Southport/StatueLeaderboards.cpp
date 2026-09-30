@@ -206,19 +206,26 @@ namespace
             Publish(PAGE_LONG_WATCH, BuildBoard("THE LONG WATCH", "Total time played.", rows));
         }
 
-        // Highest level. When prestige is added this becomes prestige + level.
+        // High Water Mark: highest Prestige rank, then highest level. A rank-1
+        // character who has reset to level 1 still outranks a rank-0 level 20.
         {
             std::vector<BoardRow> rows;
             if (QueryResult result = CharacterDatabase.PQuery(
-                "SELECT name, level FROM characters WHERE level > 1{} ORDER BY level DESC, name LIMIT {}", charFilter, TOP_COUNT))
+                "SELECT c.name, c.level, COALESCE(p.`rank`, 0) AS prank FROM characters c "
+                "LEFT JOIN prestige p ON p.guid = c.guid "
+                "WHERE (c.level > 1 OR COALESCE(p.`rank`, 0) > 0){} "
+                "ORDER BY prank DESC, c.level DESC, c.name LIMIT {}", charFilter, TOP_COUNT))
             {
                 do
                 {
                     Field* fields = result->Fetch();
-                    rows.emplace_back(fields[0].GetString(), WithCommas(fields[1].GetUInt64()));
+                    uint32 const prank = fields[2].GetUInt32();
+                    std::string const mark = "Prestige " + std::to_string(prank)
+                        + " - Level " + std::to_string(fields[1].GetUInt32());
+                    rows.emplace_back(fields[0].GetString(), mark);
                 } while (result->NextRow());
             }
-            Publish(PAGE_HIGH_WATER_MARK, BuildBoard("THE HIGH WATER MARK", "Highest level.", rows));
+            Publish(PAGE_HIGH_WATER_MARK, BuildBoard("THE HIGH WATER MARK", "Highest Prestige rank, then level.", rows));
         }
 
         // Largest hit
