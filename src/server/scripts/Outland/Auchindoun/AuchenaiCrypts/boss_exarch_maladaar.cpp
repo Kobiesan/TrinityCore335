@@ -236,6 +236,7 @@ struct npc_stolen_soul : public ScriptedAI
             case RACE_TROLL:         model = gender ? MODEL_TROLL_FEMALE : MODEL_TROLL_MALE; break;
             case RACE_BLOODELF:      model = gender ? MODEL_BLOODELF_FEMALE : MODEL_BLOODELF_MALE; break;
             case RACE_DRAENEI:       model = gender ? MODEL_DRAENEI_FEMALE : MODEL_DRAENEI_MALE; break;
+            case RACE_HIGHELF:       model = gender ? MODEL_BLOODELF_FEMALE : MODEL_BLOODELF_MALE; break; // shares Blood Elf model
             default: break;
         }
 

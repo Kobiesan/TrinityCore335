@@ -732,6 +732,9 @@ namespace
 
     uint32 PokerIconForRace(uint8 race, uint8 gender)
     {
+        // High Elf shares the Blood Elf model, so reuse the Blood Elf portrait.
+        if (race == RACE_HIGHELF)
+            race = RACE_BLOODELF;
         static uint8 const RACE_ORDER[10] = { 1, 2, 3, 4, 5, 6, 7, 8, 10, 11 };
         uint32 pos = 0;
         for (uint32 i = 0; i < 10; ++i)

@@ -16,6 +16,7 @@
  */
 
 #include "Poker/Poker.h"
+#include "HighElfMeditation.h"
 #include "Southport/SouthportGuard.h"
 #include "Southport/StatueLeaderboards.h"
 
@@ -30,6 +31,7 @@ void AddSC_southport_riding();
 // void Add${NameOfDirectory}Scripts()
 void AddCustomScripts()
 {
+    RegisterSpellScript(spell_tbv_queldorei_meditation);
     AddSC_GOMove_commandscript();
     AddSC_poker();
     AddSC_southport_containers();

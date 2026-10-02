@@ -49,6 +49,7 @@ void PlayerTaxi::InitTaxiNodesForLevel(uint32 race, uint32 chrClass, uint8 level
         case RACE_TROLL:    SetTaximaskNode(23); break;     // Troll
         case RACE_BLOODELF: SetTaximaskNode(82); break;     // Blood Elf
         case RACE_DRAENEI:  SetTaximaskNode(94); break;     // Draenei
+        case RACE_HIGHELF:  SetTaximaskNode(2);  break;     // High Elf (Stormwind, like Human)
     }
 
     // new continent starting masks (It will be accessible only at new map)

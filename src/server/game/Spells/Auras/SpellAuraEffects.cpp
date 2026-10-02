@@ -1934,6 +1934,10 @@ void AuraEffect::HandleAuraTransform(AuraApplication const* aurApp, uint8 mode, 
                             case RACE_BLOODELF:
                                 target->SetDisplayId(gender == GENDER_FEMALE ? 17830 : 17829);
                                 break;
+                            // High Elf (shares the Blood Elf model)
+                            case RACE_HIGHELF:
+                                target->SetDisplayId(gender == GENDER_FEMALE ? 17830 : 17829);
+                                break;
                             // Orc
                             case RACE_ORC:
                                 target->SetDisplayId(gender == GENDER_FEMALE ? 10140 : 10139);
@@ -1991,6 +1995,10 @@ void AuraEffect::HandleAuraTransform(AuraApplication const* aurApp, uint8 mode, 
                         {
                             // Blood Elf
                             case RACE_BLOODELF:
+                                target->SetDisplayId(gender == GENDER_MALE ? 25032 : 25043);
+                                break;
+                            // High Elf (shares the Blood Elf model)
+                            case RACE_HIGHELF:
                                 target->SetDisplayId(gender == GENDER_MALE ? 25032 : 25043);
                                 break;
                             // Orc

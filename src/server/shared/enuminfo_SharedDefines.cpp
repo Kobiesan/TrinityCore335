@@ -41,12 +41,13 @@ TC_API_EXPORT EnumText EnumUtils<Races>::ToString(Races value)
         case RACE_TROLL: return { "RACE_TROLL", "Troll", "" };
         case RACE_BLOODELF: return { "RACE_BLOODELF", "Blood Elf", "" };
         case RACE_DRAENEI: return { "RACE_DRAENEI", "Draenei", "" };
+        case RACE_HIGHELF: return { "RACE_HIGHELF", "High Elf", "" };
         default: throw std::out_of_range("value");
     }
 }
 
 template <>
-TC_API_EXPORT size_t EnumUtils<Races>::Count() { return 10; }
+TC_API_EXPORT size_t EnumUtils<Races>::Count() { return 11; }
 
 template <>
 TC_API_EXPORT Races EnumUtils<Races>::FromIndex(size_t index)
@@ -63,6 +64,7 @@ TC_API_EXPORT Races EnumUtils<Races>::FromIndex(size_t index)
         case 7: return RACE_TROLL;
         case 8: return RACE_BLOODELF;
         case 9: return RACE_DRAENEI;
+        case 10: return RACE_HIGHELF;
         default: throw std::out_of_range("index");
     }
 }
@@ -82,6 +84,7 @@ TC_API_EXPORT size_t EnumUtils<Races>::ToIndex(Races value)
         case RACE_TROLL: return 7;
         case RACE_BLOODELF: return 8;
         case RACE_DRAENEI: return 9;
+        case RACE_HIGHELF: return 10;
         default: throw std::out_of_range("value");
     }
 }

@@ -1813,6 +1813,9 @@ void WorldSession::HandleCharRaceOrFactionChangeCallback(std::shared_ptr<WorldPa
                 case RACE_BLOODELF:
                     stmt->setUInt16(1, 137);
                     break;
+                case RACE_HIGHELF:
+                    stmt->setUInt16(1, 137); // Thalassian (shares Blood Elf heritage)
+                    break;
             }
 
             trans->Append(stmt);

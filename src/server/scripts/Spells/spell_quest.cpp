@@ -219,6 +219,7 @@ class spell_quest_uther_grom_tribute : public SpellScript
             case RACE_DWARF:    spell = SPELL_UTHERS_DWARF_TRIBUTE; break;
             case RACE_NIGHTELF: spell = SPELL_UTHERS_NIGHTELF_TRIBUTE; break;
             case RACE_DRAENEI:  spell = SPELL_UTHERS_DRAENEI_TRIBUTE; break;
+            case RACE_HIGHELF:  spell = SPELL_UTHERS_HUMAN_TRIBUTE; break; // Alliance tribute
             default: break;
         }
 
