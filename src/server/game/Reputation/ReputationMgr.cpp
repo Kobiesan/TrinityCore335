@@ -314,6 +314,11 @@ void ReputationMgr::Initialize()
 
 bool ReputationMgr::SetReputation(FactionEntry const* factionEntry, int32 standing, bool incremental, bool spillOverOnly)
 {
+    // Steamwheedle is a grouping, not a separate reputation track. Direct
+    // cartel-wide rewards still flow to its towns through the normal rules.
+    if (factionEntry->ID == 169)
+        spillOverOnly = true;
+
     sScriptMgr->OnPlayerReputationChange(_player, factionEntry->ID, standing, incremental);
     bool res = false;
     // if spillover definition exists in DB, override DBC
@@ -487,11 +492,86 @@ void ReputationMgr::SetAtWar(RepListID repListID, bool on)
     if (itr == _factions.end())
         return;
 
-    // always invisible or hidden faction can't change war state
-    if (itr->second.Flags.HasFlag(ReputationFlags::Hidden | ReputationFlags::Header))
+    // Steamwheedle is the explicitly supported barless group-war category.
+    bool const groupWarCategory = itr->second.ID == 169;
+    if (itr->second.Flags.HasFlag(ReputationFlags::Hidden) ||
+        (itr->second.Flags.HasFlag(ReputationFlags::Header) &&
+         !itr->second.Flags.HasFlag(ReputationFlags::HeaderShowsBar) && !groupWarCategory))
         return;
 
     SetAtWar(&itr->second, on);
+
+    // Do not propagate a declaration refused by the parent's Peaceful rule.
+    if (itr->second.Flags.HasFlag(ReputationFlags::AtWar) != on)
+        return;
+
+    uint32 parentId = itr->second.ID;
+    if (itr->second.Flags.HasFlag(ReputationFlags::HeaderShowsBar) || groupWarCategory)
+    {
+        for (auto& [index, state] : _factions)
+        {
+            if (state.ID == parentId || state.Flags.HasFlag(ReputationFlags::Hidden) ||
+                (state.Flags.HasFlag(ReputationFlags::Header) && !state.Flags.HasFlag(ReputationFlags::HeaderShowsBar)))
+                continue;
+    
+            FactionEntry const* entry = sFactionStore.LookupEntry(state.ID);
+            // Bound traversal so malformed DBC parent cycles cannot hang a session.
+            for (std::size_t depth = 0; entry && entry->ParentFactionID && depth < _factions.size(); ++depth)
+            {
+                if (entry->ParentFactionID == parentId)
+                {
+                    SetAtWar(&state, on);
+                    break;
+                }
+                entry = sFactionStore.LookupEntry(entry->ParentFactionID);
+            }
+        }
+    }
+
+    // Standing packets omit flags. Resend flags without calling SetVisible,
+    // so undiscovered descendants remain undiscovered.
+    ReconcileCategoryWarFlags();
+    SendInitialReputations();
+}
+
+void ReputationMgr::ReconcileCategoryWarFlags()
+{
+    // Evaluate nested groups before their parent. These are the two category
+    // controls exposed by our client bridge; unrelated headers stay untouched.
+    for (uint32 categoryId : { 21u, 169u })
+    {
+        FactionEntry const* category = sFactionStore.LookupEntry(categoryId);
+        if (!category)
+            continue;
+        auto categoryState = _factions.find(category->ReputationIndex);
+        if (categoryState == _factions.end())
+            continue;
+
+        bool hasDescendant = false;
+        bool allAtWar = true;
+        for (auto const& [index, state] : _factions)
+        {
+            if (state.ID == categoryId || state.Flags.HasFlag(ReputationFlags::Hidden) ||
+                (state.Flags.HasFlag(ReputationFlags::Header) && !state.Flags.HasFlag(ReputationFlags::HeaderShowsBar)))
+                continue;
+
+            FactionEntry const* entry = sFactionStore.LookupEntry(state.ID);
+            for (std::size_t depth = 0; entry && entry->ParentFactionID && depth < _factions.size(); ++depth)
+            {
+                if (entry->ParentFactionID == categoryId)
+                {
+                    hasDescendant = true;
+                    allAtWar = allAtWar && state.Flags.HasFlag(ReputationFlags::AtWar);
+                    break;
+                }
+                entry = sFactionStore.LookupEntry(entry->ParentFactionID);
+            }
+        }
+        // Update only this category's flag: never propagate reconciliation
+        // downwards, which would incorrectly clear its remaining siblings.
+        if (hasDescendant)
+            SetAtWar(&categoryState->second, allAtWar);
+    }
 }
 
 void ReputationMgr::SetAtWar(FactionState* faction, bool atWar) const
@@ -599,6 +679,8 @@ void ReputationMgr::LoadFromDB(PreparedQueryResult result)
         }
         while (result->NextRow());
     }
+
+    ReconcileCategoryWarFlags();
 }
 
 void ReputationMgr::SaveToDB(CharacterDatabaseTransaction trans)

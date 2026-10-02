@@ -17,6 +17,7 @@
 
 #include "Poker/Poker.h"
 #include "HighElfMeditation.h"
+#include "ReputationCategoryWar.h"
 #include "Southport/SouthportGuard.h"
 #include "Southport/StatueLeaderboards.h"
 
@@ -32,6 +33,7 @@ void AddSC_southport_riding();
 void AddCustomScripts()
 {
     RegisterSpellScript(spell_tbv_queldorei_meditation);
+    new ReputationCategoryWar();
     AddSC_GOMove_commandscript();
     AddSC_poker();
     AddSC_southport_containers();
