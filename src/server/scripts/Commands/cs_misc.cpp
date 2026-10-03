@@ -15,6 +15,7 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <cstdio>
 #include "ScriptMgr.h"
 #include "AccountMgr.h"
 #include "ArenaTeamMgr.h"
@@ -299,6 +300,17 @@ public:
         ZLiquidStatus status = map->GetLiquidStatus(object->GetPhaseMask(), object->GetPositionX(), object->GetPositionY(), object->GetPositionZ(), {}, &liquidStatus);
         if (status)
             handler->PSendSysMessage(LANG_LIQUID_STATUS, liquidStatus.level, liquidStatus.depth_level, liquidStatus.entry, liquidStatus.type_flags, status);
+
+        // TBV: single machine-readable line for external tooling (clipboard capture).
+        // Also appended to gps_coords.txt next to the worldserver exe.
+        handler->PSendSysMessage("[gps] X {:.4f} Y {:.4f} Z {:.4f} O {:.4f} map {} zone {} area {}",
+            object->GetPositionX(), object->GetPositionY(), object->GetPositionZ(), object->GetOrientation(), mapId, zoneId, areaId);
+        if (std::FILE* coordFile = std::fopen("gps_coords.txt", "a"))
+        {
+            std::fprintf(coordFile, "[gps] X %.4f Y %.4f Z %.4f O %.4f map %u zone %u area %u\n",
+                object->GetPositionX(), object->GetPositionY(), object->GetPositionZ(), object->GetOrientation(), mapId, zoneId, areaId);
+            std::fclose(coordFile);
+        }
 
         return true;
     }
