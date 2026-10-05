@@ -308,7 +308,8 @@ void WorldSession::HandleChatMessage(ChatMsg type, Language lang, std::string ms
                     return;
                 }
 
-                if (GetPlayer()->GetTeam() != receiver->GetTeam() && !HasPermission(rbac::RBAC_PERM_TWO_SIDE_INTERACTION_CHAT))
+                if (GetPlayer()->GetTeam() != receiver->GetTeam() && !sender->IsNeutral() && !receiver->IsNeutral() &&
+                    !HasPermission(rbac::RBAC_PERM_TWO_SIDE_INTERACTION_CHAT))
                 {
                     SendWrongFactionNotice();
                     return;

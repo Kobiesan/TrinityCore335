@@ -102,6 +102,9 @@ bool ReputationMgr::IsAtWar(FactionEntry const* factionEntry) const
 
 bool ReputationMgr::IsReputationAllowedForTeam(TeamId team, uint32 factionId) const
 {
+    if (_player->IsNeutral())
+        return true;
+
     // @hack some quests give reputation to Alliance-only AND Horde-only factions, but DBC data does not allow to identify faction-only reputations
     if (team == TEAM_HORDE && (
         factionId == 1037 || // Alliance Vanguard
@@ -532,6 +535,9 @@ void ReputationMgr::SetAtWar(RepListID repListID, bool on)
     // so undiscovered descendants remain undiscovered.
     ReconcileCategoryWarFlags();
     SendInitialReputations();
+
+    if (_player->IsNeutral() && _player->IsInWorld())
+        _player->UpdateZone(_player->GetZoneId(), _player->GetAreaId());
 }
 
 void ReputationMgr::ReconcileCategoryWarFlags()

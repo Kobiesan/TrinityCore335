@@ -127,7 +127,7 @@ void WorldSession::HandleSendMail(WorldPackets::Mail::SendMail& sendMail)
         return;
     }
 
-    auto mailCountCheckContinuation = [this, player = _player, receiverGuid, mailInfo = std::move(sendMail.Info), reqmoney, cost](uint32 receiverTeam, uint64 mailsCount, uint8 receiverLevel, uint32 receiverAccountId) mutable
+    auto mailCountCheckContinuation = [this, player = _player, receiverGuid, mailInfo = std::move(sendMail.Info), reqmoney, cost](uint32 receiverTeam, uint8 receiverRace, uint64 mailsCount, uint8 receiverLevel, uint32 receiverAccountId) mutable
     {
         if (_player != player)
             return;
@@ -160,7 +160,8 @@ void WorldSession::HandleSendMail(WorldPackets::Mail::SendMail& sendMail)
             }
         }
 
-        if (!accountBound && player->GetTeam() != receiverTeam && !HasPermission(rbac::RBAC_PERM_TWO_SIDE_INTERACTION_MAIL))
+        if (!accountBound && player->GetTeam() != receiverTeam && !player->IsNeutral() && !Player::IsNeutralRace(receiverRace) &&
+            !HasPermission(rbac::RBAC_PERM_TWO_SIDE_INTERACTION_MAIL))
         {
             player->SendMailResult(0, MAIL_SEND, MAIL_ERR_NOT_YOUR_TEAM);
             return;
@@ -297,7 +298,7 @@ void WorldSession::HandleSendMail(WorldPackets::Mail::SendMail& sendMail)
 
     if (Player* receiver = ObjectAccessor::FindConnectedPlayer(receiverGuid))
     {
-        mailCountCheckContinuation(receiver->GetTeam(), receiver->GetMailSize(), receiver->GetLevel(), receiver->GetSession()->GetAccountId());
+        mailCountCheckContinuation(receiver->GetTeam(), receiver->GetRace(), receiver->GetMailSize(), receiver->GetLevel(), receiver->GetSession()->GetAccountId());
     }
     else
     {
@@ -308,7 +309,7 @@ void WorldSession::HandleSendMail(WorldPackets::Mail::SendMail& sendMail)
             .WithPreparedCallback([continuation = std::move(mailCountCheckContinuation), receiverGuid](PreparedQueryResult result) mutable
         {
             if (CharacterCacheEntry const* characterInfo = sCharacterCache->GetCharacterCacheByGuid(receiverGuid))
-                continuation(Player::TeamForRace(characterInfo->Race), result ? (*result)[0].GetUInt64() : UI64LIT(0), characterInfo->Level, characterInfo->AccountId);
+                continuation(Player::TeamForRace(characterInfo->Race), characterInfo->Race, result ? (*result)[0].GetUInt64() : UI64LIT(0), characterInfo->Level, characterInfo->AccountId);
         }));
     }
 }

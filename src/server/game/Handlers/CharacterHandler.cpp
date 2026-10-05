@@ -1616,6 +1616,14 @@ void WorldSession::HandleCharRaceOrFactionChangeCallback(std::shared_ptr<WorldPa
     uint8 oldRace     = characterInfo->Race;
     uint8 playerClass = characterInfo->Class;
     uint8 level       = characterInfo->Level;
+
+    // The existing paid race/faction conversion rewrites political reputations and
+    // languages. Permanent neutral goblins must not enter that binary conversion.
+    if (Player::IsNeutralRace(oldRace) || Player::IsNeutralRace(factionChangeInfo->RaceID))
+    {
+        SendCharFactionChange(CHAR_CREATE_RESTRICTED_RACECLASS, factionChangeInfo.get());
+        return;
+    }
     //std::string oldName = characterInfo->Name;
 
     if (!sObjectMgr->GetPlayerInfo(factionChangeInfo->RaceID, playerClass))

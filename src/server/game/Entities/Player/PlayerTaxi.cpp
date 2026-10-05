@@ -50,10 +50,11 @@ void PlayerTaxi::InitTaxiNodesForLevel(uint32 race, uint32 chrClass, uint8 level
         case RACE_BLOODELF: SetTaximaskNode(82); break;     // Blood Elf
         case RACE_DRAENEI:  SetTaximaskNode(94); break;     // Draenei
         case RACE_HIGHELF:  SetTaximaskNode(2);  break;     // High Elf (Stormwind, like Human)
+        case RACE_GOBLIN:   SetTaximaskNode(338); break;    // Neutral Goblin (Southport)
     }
 
     // new continent starting masks (It will be accessible only at new map)
-    switch (Player::TeamForRace(race))
+    switch (Player::IsNeutralRace(race) ? TEAM_OTHER : Player::TeamForRace(race))
     {
         case ALLIANCE: SetTaximaskNode(100); break;
         case HORDE:    SetTaximaskNode(99);  break;

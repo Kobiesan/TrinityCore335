@@ -57,6 +57,7 @@ void WorldSession::HandleAddFriendOpcode(WorldPacket& recvData)
         playerGuid = _player->GetGUID(),
         friendGuid = friendCharacterInfo->Guid,
         team = Player::TeamForRace(friendCharacterInfo->Race),
+        friendIsNeutral = Player::IsNeutralRace(friendCharacterInfo->Race),
         friendNote = std::move(friendNote)]()
     {
         if (playerGuid.GetCounter() != m_GUIDLow)
@@ -65,7 +66,8 @@ void WorldSession::HandleAddFriendOpcode(WorldPacket& recvData)
         FriendsResult friendResult = FRIEND_NOT_FOUND;
         if (friendGuid == GetPlayer()->GetGUID())
             friendResult = FRIEND_SELF;
-        else if (GetPlayer()->GetTeam() != team && !HasPermission(rbac::RBAC_PERM_TWO_SIDE_ADD_FRIEND))
+        else if (GetPlayer()->GetTeam() != team && !GetPlayer()->IsNeutral() && !friendIsNeutral &&
+            !HasPermission(rbac::RBAC_PERM_TWO_SIDE_ADD_FRIEND))
             friendResult = FRIEND_ENEMY;
         else if (GetPlayer()->GetSocial()->HasFriend(friendGuid))
             friendResult = FRIEND_ALREADY;

@@ -6290,6 +6290,10 @@ void Player::CheckOutdoorsAuraRequirements()
 
 uint32 Player::TeamForRace(uint8 race)
 {
+    // Political neutrality is separate from the binary team index used by queues and packets.
+    if (IsNeutralRace(race))
+        return ALLIANCE;
+
     if (ChrRacesEntry const* rEntry = sChrRacesStore.LookupEntry(race))
     {
         switch (rEntry->Alliance)
@@ -6307,6 +6311,9 @@ uint32 Player::TeamForRace(uint8 race)
 
 TeamId Player::TeamIdForRace(uint8 race)
 {
+    if (IsNeutralRace(race))
+        return TEAM_ALLIANCE;
+
     if (ChrRacesEntry const* rEntry = sChrRacesStore.LookupEntry(race))
         return TeamId(rEntry->Alliance);
 
@@ -6435,7 +6442,7 @@ void Player::RewardReputation(Unit* victim, float rate)
 
     uint32 team = GetTeam();
 
-    if (Rep->RepFaction1 && (!Rep->TeamDependent || team == ALLIANCE))
+    if (Rep->RepFaction1 && (!Rep->TeamDependent || IsNeutral() || team == ALLIANCE))
     {
         int32 donerep1 = CalculateReputationGain(REPUTATION_SOURCE_KILL, victim->GetLevel(), Rep->RepValue1, ChampioningFaction ? ChampioningFaction : Rep->RepFaction1);
         donerep1 = int32(donerep1 * rate);
@@ -6446,7 +6453,7 @@ void Player::RewardReputation(Unit* victim, float rate)
             GetReputationMgr().ModifyReputation(factionEntry1, donerep1, current_reputation_rank1 > Rep->ReputationMaxCap1);
     }
 
-    if (Rep->RepFaction2 && (!Rep->TeamDependent || team == HORDE))
+    if (Rep->RepFaction2 && (!Rep->TeamDependent || IsNeutral() || team == HORDE))
     {
         int32 donerep2 = CalculateReputationGain(REPUTATION_SOURCE_KILL, victim->GetLevel(), Rep->RepValue2, ChampioningFaction ? ChampioningFaction : Rep->RepFaction2);
         donerep2 = int32(donerep2 * rate);
@@ -6457,7 +6464,7 @@ void Player::RewardReputation(Unit* victim, float rate)
             GetReputationMgr().ModifyReputation(factionEntry2, donerep2, current_reputation_rank2 > Rep->ReputationMaxCap2);
     }
 
-    if (Rep->RepFaction3 && !Rep->TeamDependent)
+    if (Rep->RepFaction3 && (!Rep->TeamDependent || IsNeutral()))
     {
         int32 donerep3 = CalculateReputationGain(REPUTATION_SOURCE_KILL, victim->GetLevel(), Rep->RepValue3, ChampioningFaction ? ChampioningFaction : Rep->RepFaction3);
         donerep3 = int32(donerep3 * rate);
@@ -6827,7 +6834,8 @@ void Player::UpdateArea(uint32 newArea)
     else
         RemovePvpFlag(UNIT_BYTE2_FLAG_SANCTUARY);
 
-    uint32 const areaRestFlag = (GetTeam() == ALLIANCE) ? AREA_FLAG_REST_ZONE_ALLIANCE : AREA_FLAG_REST_ZONE_HORDE;
+    uint32 const areaRestFlag = IsNeutral() ? (AREA_FLAG_REST_ZONE_ALLIANCE | AREA_FLAG_REST_ZONE_HORDE) :
+        ((GetTeam() == ALLIANCE) ? AREA_FLAG_REST_ZONE_ALLIANCE : AREA_FLAG_REST_ZONE_HORDE);
     if (area && area->Flags & areaRestFlag)
         SetRestFlag(REST_FLAG_IN_FACTION_AREA);
     else
@@ -6885,6 +6893,30 @@ void Player::UpdateZone(uint32 newZone, uint32 newArea)
         default:                                            // 6 in fact
             pvpInfo.IsInHostileArea = false;
             break;
+    }
+
+    // Neutral goblins enter either side's cities according to earned reputation.
+    // Keep battleground and Wintergrasp hostility governed by the PvP rules above.
+    if (IsNeutral() && !InBattleground() && !(zone->Flags & AREA_FLAG_WINTERGRASP) &&
+        (zone->FactionGroupMask == AREATEAM_ALLY || zone->FactionGroupMask == AREATEAM_HORDE))
+    {
+        uint32 factionId = zone->FactionGroupMask == AREATEAM_ALLY ? 469 : 67;
+        switch (newZone)
+        {
+            case 1519: factionId = 72; break;  // Stormwind
+            case 1537: factionId = 47; break;  // Ironforge
+            case 1657: factionId = 69; break;  // Darnassus
+            case 3557: factionId = 930; break; // Exodar
+            case 1637: factionId = 76; break;  // Orgrimmar
+            case 1497: factionId = 68; break;  // Undercity
+            case 1638: factionId = 81; break;  // Thunder Bluff
+            case 3487: factionId = 911; break; // Silvermoon
+            default: break;
+        }
+        bool hostileReputation = GetReputationRank(factionId) <= REP_HOSTILE ||
+            GetReputationMgr().IsAtWar(factionId);
+        pvpInfo.IsInHostileArea = hostileReputation &&
+            (sWorld->IsPvPRealm() || (zone->Flags & AREA_FLAG_CAPITAL));
     }
 
     // Treat players having a quest flagging for PvP as always in hostile area
@@ -16443,6 +16475,9 @@ void Player::MoneyChanged(uint32 count)
 
 void Player::ReputationChanged(FactionEntry const* factionEntry)
 {
+    if (IsNeutral() && IsInWorld())
+        UpdateZone(GetZoneId(), GetAreaId());
+
     for (uint8 i = 0; i < MAX_QUEST_LOG_SIZE; ++i)
     {
         if (uint32 questid = GetQuestSlotQuestId(i))
