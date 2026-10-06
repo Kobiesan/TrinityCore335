@@ -22,19 +22,11 @@
 #include "StringConvert.h"
 #include <sstream>
 
-void PlayerTaxi::InitTaxiNodesForLevel(uint32 race, uint32 chrClass, uint8 level)
+void PlayerTaxi::InitTaxiNodesForLevel(uint32 race, uint32 /*chrClass*/, uint8 level)
 {
-    // class specific initial known nodes
-    switch (chrClass)
-    {
-        case CLASS_DEATH_KNIGHT:
-        {
-            for (std::size_t i = 0; i < m_taximask.size(); ++i)
-                m_taximask[i] |= sOldContinentsNodesMask[i];
-            break;
-        }
-    }
-
+    // No class-specific initial nodes. Death Knights used to be granted every
+    // old-continent flight path here (sOldContinentsNodesMask); they now start
+    // with the same nodes as any other class and discover the rest normally.
     // race specific initial known nodes: capital and taxi hub masks
     switch (race)
     {
