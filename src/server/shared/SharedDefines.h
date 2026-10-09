@@ -836,6 +836,15 @@ enum Language
     LANG_KALIMAG           = 12,
     LANG_GNOMISH           = 13,
     LANG_TROLL             = 14,
+    LANG_SCOURGE           = 15,
+    LANG_NERUBIAN          = 16,
+    LANG_GOBLIN            = 17,
+    LANG_NAZJA             = 18,
+    LANG_OGRE              = 19,
+    LANG_FURBOLG           = 20,
+    LANG_NERGLISH          = 21,
+    LANG_QIRAJI            = 22,
+    LANG_QUILBOAR          = 23,
     LANG_GUTTERSPEAK       = 33,
     LANG_DRAENEI           = 35,
     LANG_ZOMBIE            = 36,
@@ -844,7 +853,7 @@ enum Language
     LANG_ADDON             = 0xFFFFFFFF // used by addons, in 2.4.0 not exist, replaced by messagetype?
 };
 
-#define LANGUAGES_COUNT   19
+#define LANGUAGES_COUNT   28
 
 enum TeamId
 {
@@ -3088,6 +3097,16 @@ enum SkillType
     SKILL_RACIAL_BLOODELF                           = 756,
     SKILL_PET_EVENT_RC                              = 758,
     SKILL_LANG_DRAENEI                              = 759,
+    SKILL_LANG_KALIMAG                              = 789,
+    SKILL_LANG_SCOURGE                              = 790,
+    SKILL_LANG_NERUBIAN                             = 791,
+    SKILL_LANG_GOBLIN                               = 792,
+    SKILL_LANG_NAZJA                                = 793,
+    SKILL_LANG_OGRE                                 = 794,
+    SKILL_LANG_FURBOLG                              = 795,
+    SKILL_LANG_NERGLISH                             = 796,
+    SKILL_LANG_QIRAJI                               = 797,
+    SKILL_LANG_QUILBOAR                             = 798,
     SKILL_RACIAL_DRAENEI                            = 760,
     SKILL_PET_FELGUARD                              = 761,
     SKILL_RIDING                                    = 762,
@@ -3117,7 +3136,7 @@ enum SkillType
     SKILL_PET_EXOTIC_SPIRIT_BEAST                   = 788
 };
 
-#define MAX_SKILL_TYPE                                789
+#define MAX_SKILL_TYPE                                799
 
 constexpr SkillType SkillByLockType(LockType locktype)
 {

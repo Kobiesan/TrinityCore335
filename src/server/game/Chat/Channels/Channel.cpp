@@ -669,10 +669,6 @@ void Channel::Say(ObjectGuid const& guid, std::string const& what, uint32 lang) 
     if (what.empty())
         return;
 
-    // TODO: Add proper RBAC check
-    if (sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_CHANNEL))
-        lang = LANG_UNIVERSAL;
-
     if (!IsOn(guid))
     {
         NotMemberAppend appender;

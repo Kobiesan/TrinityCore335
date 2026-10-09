@@ -467,10 +467,11 @@ enum ItemSubclassRecipe
     ITEM_SUBCLASS_ENCHANTING_FORMULA            = 8,
     ITEM_SUBCLASS_FISHING_MANUAL                = 9,
     ITEM_SUBCLASS_JEWELCRAFTING_RECIPE          = 10,
-    ITEM_SUBCLASS_INSCRIPTION_TECHNIQUE         = 11
+    ITEM_SUBCLASS_INSCRIPTION_TECHNIQUE         = 11,
+    ITEM_SUBCLASS_LANGUAGE_DRAFT                = 12
 };
 
-#define MAX_ITEM_SUBCLASS_RECIPE                  12
+#define MAX_ITEM_SUBCLASS_RECIPE                  13
 
 enum ItemSubclassMoney
 {

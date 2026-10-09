@@ -559,7 +559,16 @@ bool IsPrimaryProfessionSkill(uint32 skill);
 
 inline bool IsProfessionSkill(uint32 skill)
 {
-    return  IsPrimaryProfessionSkill(skill) || skill == SKILL_FISHING || skill == SKILL_COOKING || skill == SKILL_FIRST_AID;
+    return  IsPrimaryProfessionSkill(skill) || skill == SKILL_FISHING || skill == SKILL_COOKING || skill == SKILL_FIRST_AID
+        || skill == SKILL_LANG_COMMON || skill == SKILL_LANG_DARNASSIAN || skill == SKILL_LANG_DEMON_TONGUE
+        || skill == SKILL_LANG_DRACONIC || skill == SKILL_LANG_DRAENEI || skill == SKILL_LANG_DWARVEN
+        || skill == SKILL_LANG_GNOMISH || skill == SKILL_LANG_GUTTERSPEAK || skill == SKILL_LANG_KALIMAG
+        || skill == SKILL_LANG_OLD_TONGUE || skill == SKILL_LANG_ORCISH || skill == SKILL_LANG_TAURAHE
+        || skill == SKILL_LANG_THALASSIAN || skill == SKILL_LANG_TITAN || skill == SKILL_LANG_TROLL
+        || skill == SKILL_LANG_SCOURGE || skill == SKILL_LANG_NERUBIAN || skill == SKILL_LANG_GOBLIN
+        || skill == SKILL_LANG_NAZJA || skill == SKILL_LANG_OGRE
+        || skill == SKILL_LANG_FURBOLG || skill == SKILL_LANG_NERGLISH
+        || skill == SKILL_LANG_QIRAJI || skill == SKILL_LANG_QUILBOAR;
 }
 
 inline bool IsProfessionOrRidingSkill(uint32 skill)

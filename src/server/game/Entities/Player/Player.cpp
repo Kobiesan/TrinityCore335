@@ -20538,9 +20538,28 @@ void Player::Say(std::string_view text, Language language, WorldObject const* /*
     std::string _text(text);
     sScriptMgr->OnPlayerChat(this, CHAT_MSG_SAY, language, _text);
 
-    WorldPackets::Chat::Chat packet;
-    packet.Initialize(CHAT_MSG_SAY, language, this, this, _text);
-    SendMessageToSetInRange(packet.Write(), sWorld->getFloatConfig(CONFIG_LISTEN_RANGE_SAY), true, false, true);
+    float range = sWorld->getFloatConfig(CONFIG_LISTEN_RANGE_SAY);
+
+    if (language != LANG_UNIVERSAL && language != LANG_ADDON)
+    {
+        std::list<Player*> players;
+        GetPlayerListInGrid(players, range);
+        for (Player* player : players)
+        {
+            if (player != this && !player->HaveAtClient(this))
+                continue;
+            Language memberLang = (player != this && player->IsGameMaster()) ? LANG_UNIVERSAL : language;
+            WorldPackets::Chat::Chat packet;
+            packet.Initialize(CHAT_MSG_SAY, memberLang, this, this, _text);
+            player->SendDirectMessage(packet.Write());
+        }
+    }
+    else
+    {
+        WorldPackets::Chat::Chat packet;
+        packet.Initialize(CHAT_MSG_SAY, language, this, this, _text);
+        SendMessageToSetInRange(packet.Write(), range, true, false, true);
+    }
 }
 
 void Player::Say(uint32 textId, WorldObject const* target /*= nullptr*/)
@@ -20553,9 +20572,28 @@ void Player::Yell(std::string_view text, Language language, WorldObject const* /
     std::string _text(text);
     sScriptMgr->OnPlayerChat(this, CHAT_MSG_YELL, language, _text);
 
-    WorldPackets::Chat::Chat packet;
-    packet.Initialize(CHAT_MSG_YELL, language, this, this, _text);
-    SendMessageToSetInRange(packet.Write(), sWorld->getFloatConfig(CONFIG_LISTEN_RANGE_YELL), true, false, true);
+    float range = sWorld->getFloatConfig(CONFIG_LISTEN_RANGE_YELL);
+
+    if (language != LANG_UNIVERSAL && language != LANG_ADDON)
+    {
+        std::list<Player*> players;
+        GetPlayerListInGrid(players, range);
+        for (Player* player : players)
+        {
+            if (player != this && !player->HaveAtClient(this))
+                continue;
+            Language memberLang = (player != this && player->IsGameMaster()) ? LANG_UNIVERSAL : language;
+            WorldPackets::Chat::Chat packet;
+            packet.Initialize(CHAT_MSG_YELL, memberLang, this, this, _text);
+            player->SendDirectMessage(packet.Write());
+        }
+    }
+    else
+    {
+        WorldPackets::Chat::Chat packet;
+        packet.Initialize(CHAT_MSG_YELL, language, this, this, _text);
+        SendMessageToSetInRange(packet.Write(), range, true, false, true);
+    }
 }
 
 void Player::Yell(uint32 textId, WorldObject const* target /*= nullptr*/)
@@ -22848,6 +22886,83 @@ void Player::LearnDefaultSkill(uint32 skillId, uint16 rank)
     if (!rcInfo)
         return;
 
+    // Languages-as-professions (ported from the Twinkcraft core): when a rank is
+    // supplied by playercreateinfo_skills, start the skill at that tier's cap.
+    // A few races/classes start partway into a foreign language (value 50).
+    if (rank > 0)
+    {
+        uint16 maxValue;
+        if (SkillTiersEntry const* tier = sSkillTiersStore.LookupEntry(rcInfo->SkillTierID))
+            maxValue = tier->Value[std::max<int32>(rank - 1, 0)];
+        else
+        {
+            static uint16 const languageTier[4] = { 75, 150, 225, 300 };
+            maxValue = languageTier[std::min<uint16>(std::max<uint16>(rank, 1), 4) - 1];
+        }
+
+        uint16 skillValue = maxValue;
+
+        switch (GetRace())
+        {
+            case RACE_DWARF:
+                if (skillId == SKILL_LANG_GNOMISH)
+                    skillValue = 50;
+                break;
+            case RACE_NIGHTELF:
+                if (skillId == SKILL_LANG_THALASSIAN)
+                    skillValue = 50;
+                break;
+            case RACE_ORC:
+                if (skillId == SKILL_LANG_TROLL)
+                    skillValue = 50;
+                break;
+            case RACE_BLOODELF:
+                if (skillId == SKILL_LANG_DARNASSIAN)
+                    skillValue = 50;
+                break;
+            case RACE_HIGHELF:
+                if (skillId == SKILL_LANG_DARNASSIAN)
+                    skillValue = 50;
+                break;
+            case RACE_DRAENEI:
+            case RACE_UNDEAD_PLAYER:
+            case RACE_GNOME:
+            case RACE_HUMAN:
+            case RACE_TROLL:
+            case RACE_TAUREN:
+            case RACE_GOBLIN:
+                // native/known language: keep the tier max (fluent)
+                break;
+            default:
+                if (rcInfo->Flags & SKILL_FLAG_ALWAYS_MAX_VALUE)
+                    skillValue = maxValue;
+                else
+                    skillValue = std::min(std::max<uint16>({ uint16(1), uint16((GetLevel() - 1) * 5) }), maxValue);
+                break;
+        }
+
+        switch (GetClass())
+        {
+            case CLASS_WARLOCK:
+                if (skillId == SKILL_LANG_DEMON_TONGUE)
+                    skillValue = 50;
+                break;
+            case CLASS_SHAMAN:
+                if (skillId == SKILL_LANG_KALIMAG)
+                    skillValue = 50;
+                break;
+            case CLASS_DEATH_KNIGHT:
+                if (skillId == SKILL_LANG_SCOURGE)
+                    skillValue = 50;
+                break;
+            default:
+                break;
+        }
+
+        SetSkill(skillId, rank, skillValue, maxValue);
+        return;
+    }
+
     TC_LOG_DEBUG("entities.player.loading", "PLAYER (Class: {} Race: {}): Adding initial skill, id = {}", uint32(GetClass()), uint32(GetRace()), skillId);
     switch (GetSkillRangeType(rcInfo))
     {
@@ -24783,9 +24898,9 @@ void Player::_LoadSkills(PreparedQueryResult result)
             // set fixed skill ranges
             switch (GetSkillRangeType(rcEntry))
             {
-                case SKILL_RANGE_LANGUAGE:                      // 300..300
-                    value = max = 300;
-                    break;
+                //case SKILL_RANGE_LANGUAGE:                     // do not force languages to 300 on login
+                //    value = max = 300;
+                //    break;
                 case SKILL_RANGE_MONO:                          // 1..1, grey monolite bar
                     value = max = 1;
                     break;

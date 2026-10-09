@@ -53,6 +53,34 @@ inline bool isNasty(uint8 c)
     return false;
 }
 
+// Broadcast group chat using the chosen language. Game Masters always receive the
+// message in LANG_UNIVERSAL so they can read it. (Language comprehension/scrambling
+// is not ported yet; non-speakers rely on the client's built-in scrambling.)
+static void BroadcastGroupChatWithLanguage(Player* sender, Group* group, ChatMsg msgType, Language lang, std::string const& msg, int groupIndex = -1)
+{
+    if (lang == LANG_UNIVERSAL || lang == LANG_ADDON)
+    {
+        WorldPackets::Chat::Chat packet;
+        packet.Initialize(msgType, lang, sender, nullptr, msg);
+        group->BroadcastPacket(packet.Write(), false, groupIndex);
+        return;
+    }
+
+    for (GroupReference* itr = group->GetFirstMember(); itr != nullptr; itr = itr->next())
+    {
+        Player* member = itr->GetSource();
+        if (!member || !member->GetSession())
+            continue;
+        if (groupIndex != -1 && itr->getSubGroup() != groupIndex)
+            continue;
+
+        Language memberLang = member->IsGameMaster() ? LANG_UNIVERSAL : lang;
+        WorldPackets::Chat::Chat packet;
+        packet.Initialize(msgType, memberLang, sender, nullptr, msg);
+        member->SendDirectMessage(packet.Write());
+    }
+}
+
 void WorldSession::HandleChatMessageOpcode(WorldPackets::Chat::ChatMessage& chatMessage)
 {
     HandleChatMessage(chatMessage.SlashCmd, chatMessage.Language, std::move(chatMessage.Text), std::move(chatMessage.Target));
@@ -100,8 +128,36 @@ void WorldSession::HandleChatMessage(ChatMsg type, Language lang, std::string ms
         }
         if (!foundAura)
         {
-            SendNotification(LANG_NOT_LEARNED_LANGUAGE);
-            return;
+            // Instead of rejecting, fall back to a language the player actually knows.
+            // This handles macros and login defaulting to Common/Orcish when the player
+            // doesn't speak those languages (e.g. races that only start with their native tongue).
+            static constexpr struct { Language lang; uint16 skill; } languageTable[] = {
+                { LANG_COMMON,     98  }, { LANG_ORCISH,     109 }, { LANG_DWARVISH,   111 },
+                { LANG_DARNASSIAN, 113 }, { LANG_TAURAHE,    115 }, { LANG_GNOMISH,    313 },
+                { LANG_TROLL,      315 }, { LANG_GUTTERSPEAK,673 }, { LANG_THALASSIAN, 137 },
+                { LANG_DRAENEI,    759 },
+            };
+
+            Language fallback = LANG_UNIVERSAL;
+            if (ChrRacesEntry const* raceEntry = sChrRacesStore.LookupEntry(sender->GetRace()))
+            {
+                Language racialLang = Language(raceEntry->BaseLanguage);
+                LanguageDesc const* racialDesc = GetLanguageDescByID(racialLang);
+                if (racialDesc && (racialDesc->skill_id == 0 || sender->HasSkill(racialDesc->skill_id)))
+                    fallback = racialLang;
+            }
+
+            if (fallback == LANG_UNIVERSAL)
+                for (auto const& entry : languageTable)
+                    if (sender->HasSkill(entry.skill)) { fallback = entry.lang; break; }
+
+            if (fallback == LANG_UNIVERSAL)
+            {
+                SendNotification(LANG_NOT_LEARNED_LANGUAGE);
+                return;
+            }
+
+            lang = fallback;
         }
     }
 
@@ -135,31 +191,6 @@ void WorldSession::HandleChatMessage(ChatMsg type, Language lang, std::string ms
             Unit::AuraEffectList const& ModLangAuras = sender->GetAuraEffectsByType(SPELL_AURA_MOD_LANGUAGE);
             if (!ModLangAuras.empty())
                 lang = Language(ModLangAuras.front()->GetMiscValue());
-            else if (HasPermission(rbac::RBAC_PERM_TWO_SIDE_INTERACTION_CHAT))
-                lang = LANG_UNIVERSAL;
-            else
-            {
-                switch (type)
-                {
-                    case CHAT_MSG_PARTY:
-                    case CHAT_MSG_PARTY_LEADER:
-                    case CHAT_MSG_RAID:
-                    case CHAT_MSG_RAID_LEADER:
-                    case CHAT_MSG_RAID_WARNING:
-                        // allow two side chat at group channel if two side group allowed
-                        if (sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_GROUP))
-                            lang = LANG_UNIVERSAL;
-                        break;
-                    case CHAT_MSG_GUILD:
-                    case CHAT_MSG_OFFICER:
-                        // allow two side chat at guild channel if two side guild allowed
-                        if (sWorld->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_INTERACTION_GUILD))
-                            lang = LANG_UNIVERSAL;
-                        break;
-                    default:
-                        break;
-                }
-            }
         }
     }
 
@@ -353,9 +384,7 @@ void WorldSession::HandleChatMessage(ChatMsg type, Language lang, std::string ms
 
             sScriptMgr->OnPlayerChat(GetPlayer(), type, lang, msg, group);
 
-            WorldPackets::Chat::Chat packet;
-            packet.Initialize(ChatMsg(type), Language(lang), sender, nullptr, msg);
-            group->BroadcastPacket(packet.Write(), false, group->GetMemberGroup(GetPlayer()->GetGUID()));
+            BroadcastGroupChatWithLanguage(sender, group, ChatMsg(type), Language(lang), msg, group->GetMemberGroup(GetPlayer()->GetGUID()));
             break;
         }
         case CHAT_MSG_GUILD:
@@ -366,7 +395,7 @@ void WorldSession::HandleChatMessage(ChatMsg type, Language lang, std::string ms
                 {
                     sScriptMgr->OnPlayerChat(GetPlayer(), type, lang, msg, guild);
 
-                    guild->BroadcastToGuild(this, false, msg, lang == LANG_ADDON ? LANG_ADDON : LANG_UNIVERSAL);
+                    guild->BroadcastToGuild(this, false, msg, lang);
                 }
             }
             break;
@@ -379,7 +408,7 @@ void WorldSession::HandleChatMessage(ChatMsg type, Language lang, std::string ms
                 {
                     sScriptMgr->OnPlayerChat(GetPlayer(), type, lang, msg, guild);
 
-                    guild->BroadcastToGuild(this, true, msg, lang == LANG_ADDON ? LANG_ADDON : LANG_UNIVERSAL);
+                    guild->BroadcastToGuild(this, true, msg, lang);
                 }
             }
             break;
@@ -397,9 +426,7 @@ void WorldSession::HandleChatMessage(ChatMsg type, Language lang, std::string ms
 
             sScriptMgr->OnPlayerChat(GetPlayer(), type, lang, msg, group);
 
-            WorldPackets::Chat::Chat packet;
-            packet.Initialize(CHAT_MSG_RAID, Language(lang), sender, nullptr, msg);
-            group->BroadcastPacket(packet.Write(), false);
+            BroadcastGroupChatWithLanguage(sender, group, CHAT_MSG_RAID, Language(lang), msg);
             break;
         }
         case CHAT_MSG_RAID_LEADER:
@@ -415,9 +442,7 @@ void WorldSession::HandleChatMessage(ChatMsg type, Language lang, std::string ms
 
             sScriptMgr->OnPlayerChat(GetPlayer(), type, lang, msg, group);
 
-            WorldPackets::Chat::Chat packet;
-            packet.Initialize(CHAT_MSG_RAID_LEADER, Language(lang), sender, nullptr, msg);
-            group->BroadcastPacket(packet.Write(), false);
+            BroadcastGroupChatWithLanguage(sender, group, CHAT_MSG_RAID_LEADER, Language(lang), msg);
             break;
         }
         case CHAT_MSG_RAID_WARNING:
@@ -428,10 +453,8 @@ void WorldSession::HandleChatMessage(ChatMsg type, Language lang, std::string ms
 
             sScriptMgr->OnPlayerChat(GetPlayer(), type, lang, msg, group);
 
-            WorldPackets::Chat::Chat packet;
             //in battleground, raid warning is sent only to players in battleground - code is ok
-            packet.Initialize(CHAT_MSG_RAID_WARNING, Language(lang), sender, nullptr, msg);
-            group->BroadcastPacket(packet.Write(), false);
+            BroadcastGroupChatWithLanguage(sender, group, CHAT_MSG_RAID_WARNING, Language(lang), msg);
             break;
         }
         case CHAT_MSG_BATTLEGROUND:
@@ -443,9 +466,7 @@ void WorldSession::HandleChatMessage(ChatMsg type, Language lang, std::string ms
 
             sScriptMgr->OnPlayerChat(GetPlayer(), type, lang, msg, group);
 
-            WorldPackets::Chat::Chat packet;
-            packet.Initialize(CHAT_MSG_BATTLEGROUND, Language(lang), sender, nullptr, msg);
-            group->BroadcastPacket(packet.Write(), false);
+            BroadcastGroupChatWithLanguage(sender, group, CHAT_MSG_BATTLEGROUND, Language(lang), msg);
             break;
         }
         case CHAT_MSG_BATTLEGROUND_LEADER:
@@ -457,9 +478,7 @@ void WorldSession::HandleChatMessage(ChatMsg type, Language lang, std::string ms
 
             sScriptMgr->OnPlayerChat(GetPlayer(), type, lang, msg, group);
 
-            WorldPackets::Chat::Chat packet;
-            packet.Initialize(CHAT_MSG_BATTLEGROUND_LEADER, Language(lang), sender, nullptr, msg);;
-            group->BroadcastPacket(packet.Write(), false);
+            BroadcastGroupChatWithLanguage(sender, group, CHAT_MSG_BATTLEGROUND_LEADER, Language(lang), msg);
             break;
         }
         case CHAT_MSG_CHANNEL:

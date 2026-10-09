@@ -2018,7 +2018,11 @@ bool ConditionMgr::isConditionTypeValid(Condition* cond) const
                 return false;
             }
 
-            if (cond->ConditionValue2 < 1 || cond->ConditionValue2 > sWorld->GetConfigMaxSkillValue())
+            // Trainable languages reach 300 independently of the player level cap.
+            // Otherwise a level-20 realm silently drops book caps above skill 100.
+            uint32 maxSkillValue = pSkill->CategoryID == SKILL_CATEGORY_LANGUAGES
+                ? 300 : sWorld->GetConfigMaxSkillValue();
+            if (cond->ConditionValue2 < 1 || cond->ConditionValue2 > maxSkillValue)
             {
                 TC_LOG_ERROR("sql.sql", "{} specifies skill ({}) with invalid value ({}), skipped.", cond->ToString(true), cond->ConditionValue1, cond->ConditionValue2);
                 return false;

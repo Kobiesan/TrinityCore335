@@ -2128,14 +2128,16 @@ void Guild::BroadcastToGuild(WorldSession* session, bool officerOnly, std::strin
 {
     if (session && session->GetPlayer() && _HasRankRight(session->GetPlayer(), officerOnly ? GR_RIGHT_OFFCHATSPEAK : GR_RIGHT_GCHATSPEAK))
     {
-        WorldPackets::Chat::Chat packet;
-        packet.Initialize(officerOnly ? CHAT_MSG_OFFICER : CHAT_MSG_GUILD, Language(language), session->GetPlayer(), nullptr, msg);
-        WorldPacket const* data = packet.Write();
         for (auto const& [guid, member] : m_members)
             if (Player* player = member.FindConnectedPlayer())
                 if (player->GetSession() && _HasRankRight(player, officerOnly ? GR_RIGHT_OFFCHATLISTEN : GR_RIGHT_GCHATLISTEN) &&
                     !player->GetSocial()->HasIgnore(session->GetPlayer()->GetGUID()))
-                    player->SendDirectMessage(data);
+                {
+                    Language memberLang = player->IsGameMaster() ? LANG_UNIVERSAL : Language(language);
+                    WorldPackets::Chat::Chat packet;
+                    packet.Initialize(officerOnly ? CHAT_MSG_OFFICER : CHAT_MSG_GUILD, memberLang, session->GetPlayer(), nullptr, msg);
+                    player->SendDirectMessage(packet.Write());
+                }
     }
 }
 
