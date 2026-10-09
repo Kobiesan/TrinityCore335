@@ -736,15 +736,23 @@ struct ReputationOnKillEntry
     uint32 RepFaction1;
     uint32 RepFaction2;
     uint32 RepFaction3;
+    uint32 RepFaction4;
+    uint32 RepFaction5;
     uint32 ReputationMaxCap1;
     int32 RepValue1;
     uint32 ReputationMaxCap2;
     int32 RepValue2;
     uint32 ReputationMaxCap3;
     int32 RepValue3;
+    uint32 ReputationMaxCap4;
+    int32 RepValue4;
+    uint32 ReputationMaxCap5;
+    int32 RepValue5;
     bool IsTeamAward1;
     bool IsTeamAward2;
     bool IsTeamAward3;
+    bool IsTeamAward4;
+    bool IsTeamAward5;
     bool TeamDependent;
 };
 

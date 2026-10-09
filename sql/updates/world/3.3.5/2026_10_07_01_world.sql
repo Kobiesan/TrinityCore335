@@ -1,0 +1,25 @@
+-- Extend kill rewards to five factions; safe to re-run.
+SET @coastal_exists=(SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='creature_onkill_reputation' AND COLUMN_NAME='RewOnKillRepFaction4');
+SET @coastal_sql=IF(@coastal_exists=0,'ALTER TABLE creature_onkill_reputation ADD COLUMN `RewOnKillRepFaction4` smallint NOT NULL DEFAULT 0','SELECT 1');
+PREPARE coastal_stmt FROM @coastal_sql; EXECUTE coastal_stmt; DEALLOCATE PREPARE coastal_stmt;
+SET @coastal_exists=(SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='creature_onkill_reputation' AND COLUMN_NAME='MaxStanding4');
+SET @coastal_sql=IF(@coastal_exists=0,'ALTER TABLE creature_onkill_reputation ADD COLUMN `MaxStanding4` tinyint NOT NULL DEFAULT 0','SELECT 1');
+PREPARE coastal_stmt FROM @coastal_sql; EXECUTE coastal_stmt; DEALLOCATE PREPARE coastal_stmt;
+SET @coastal_exists=(SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='creature_onkill_reputation' AND COLUMN_NAME='IsTeamAward4');
+SET @coastal_sql=IF(@coastal_exists=0,'ALTER TABLE creature_onkill_reputation ADD COLUMN `IsTeamAward4` tinyint NOT NULL DEFAULT 0','SELECT 1');
+PREPARE coastal_stmt FROM @coastal_sql; EXECUTE coastal_stmt; DEALLOCATE PREPARE coastal_stmt;
+SET @coastal_exists=(SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='creature_onkill_reputation' AND COLUMN_NAME='RewOnKillRepValue4');
+SET @coastal_sql=IF(@coastal_exists=0,'ALTER TABLE creature_onkill_reputation ADD COLUMN `RewOnKillRepValue4` int NOT NULL DEFAULT 0','SELECT 1');
+PREPARE coastal_stmt FROM @coastal_sql; EXECUTE coastal_stmt; DEALLOCATE PREPARE coastal_stmt;
+SET @coastal_exists=(SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='creature_onkill_reputation' AND COLUMN_NAME='RewOnKillRepFaction5');
+SET @coastal_sql=IF(@coastal_exists=0,'ALTER TABLE creature_onkill_reputation ADD COLUMN `RewOnKillRepFaction5` smallint NOT NULL DEFAULT 0','SELECT 1');
+PREPARE coastal_stmt FROM @coastal_sql; EXECUTE coastal_stmt; DEALLOCATE PREPARE coastal_stmt;
+SET @coastal_exists=(SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='creature_onkill_reputation' AND COLUMN_NAME='MaxStanding5');
+SET @coastal_sql=IF(@coastal_exists=0,'ALTER TABLE creature_onkill_reputation ADD COLUMN `MaxStanding5` tinyint NOT NULL DEFAULT 0','SELECT 1');
+PREPARE coastal_stmt FROM @coastal_sql; EXECUTE coastal_stmt; DEALLOCATE PREPARE coastal_stmt;
+SET @coastal_exists=(SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='creature_onkill_reputation' AND COLUMN_NAME='IsTeamAward5');
+SET @coastal_sql=IF(@coastal_exists=0,'ALTER TABLE creature_onkill_reputation ADD COLUMN `IsTeamAward5` tinyint NOT NULL DEFAULT 0','SELECT 1');
+PREPARE coastal_stmt FROM @coastal_sql; EXECUTE coastal_stmt; DEALLOCATE PREPARE coastal_stmt;
+SET @coastal_exists=(SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='creature_onkill_reputation' AND COLUMN_NAME='RewOnKillRepValue5');
+SET @coastal_sql=IF(@coastal_exists=0,'ALTER TABLE creature_onkill_reputation ADD COLUMN `RewOnKillRepValue5` int NOT NULL DEFAULT 0','SELECT 1');
+PREPARE coastal_stmt FROM @coastal_sql; EXECUTE coastal_stmt; DEALLOCATE PREPARE coastal_stmt;

@@ -546,6 +546,14 @@ CREATE TABLE `creature_onkill_reputation` (
   `MaxStanding3` tinyint NOT NULL DEFAULT '0',
   `IsTeamAward3` tinyint NOT NULL DEFAULT '0',
   `RewOnKillRepValue3` int NOT NULL DEFAULT '0',
+  `RewOnKillRepFaction4` smallint NOT NULL DEFAULT '0',
+  `MaxStanding4` tinyint NOT NULL DEFAULT '0',
+  `IsTeamAward4` tinyint NOT NULL DEFAULT '0',
+  `RewOnKillRepValue4` int NOT NULL DEFAULT '0',
+  `RewOnKillRepFaction5` smallint NOT NULL DEFAULT '0',
+  `MaxStanding5` tinyint NOT NULL DEFAULT '0',
+  `IsTeamAward5` tinyint NOT NULL DEFAULT '0',
+  `RewOnKillRepValue5` int NOT NULL DEFAULT '0',
   `TeamDependent` tinyint unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`creature_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Creature OnKill Reputation gain';

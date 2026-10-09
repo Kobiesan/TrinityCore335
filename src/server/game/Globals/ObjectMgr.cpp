@@ -8062,7 +8062,8 @@ void ObjectMgr::LoadReputationOnKill()
     //   4             5             6                   7             8             9                   10            11            12
         "IsTeamAward1, MaxStanding1, RewOnKillRepValue1, IsTeamAward2, MaxStanding2, RewOnKillRepValue2, IsTeamAward3, MaxStanding3, RewOnKillRepValue3, "
     //   13
-        "TeamDependent "
+        "TeamDependent, RewOnKillRepFaction4, IsTeamAward4, MaxStanding4, RewOnKillRepValue4, "
+        "RewOnKillRepFaction5, IsTeamAward5, MaxStanding5, RewOnKillRepValue5 "
         "FROM creature_onkill_reputation");
 
     if (!result)
@@ -8091,6 +8092,14 @@ void ObjectMgr::LoadReputationOnKill()
         repOnKill.ReputationMaxCap3  = fields[11].GetUInt8();
         repOnKill.RepValue3            = fields[12].GetInt32();
         repOnKill.TeamDependent       = fields[13].GetBool();
+        repOnKill.RepFaction4 = fields[14].GetUInt16();
+        repOnKill.IsTeamAward4 = fields[15].GetBool();
+        repOnKill.ReputationMaxCap4 = fields[16].GetUInt8();
+        repOnKill.RepValue4 = fields[17].GetInt32();
+        repOnKill.RepFaction5 = fields[18].GetUInt16();
+        repOnKill.IsTeamAward5 = fields[19].GetBool();
+        repOnKill.ReputationMaxCap5 = fields[20].GetUInt8();
+        repOnKill.RepValue5 = fields[21].GetInt32();
 
         if (!GetCreatureTemplate(creature_id))
         {
@@ -8126,6 +8135,13 @@ void ObjectMgr::LoadReputationOnKill()
                 TC_LOG_ERROR("sql.sql", "Faction (faction.dbc) {} does not exist but is used in `creature_onkill_reputation`", repOnKill.RepFaction3);
                 continue;
             }
+        }
+
+        if ((repOnKill.RepFaction4 && !sFactionStore.LookupEntry(repOnKill.RepFaction4)) ||
+            (repOnKill.RepFaction5 && !sFactionStore.LookupEntry(repOnKill.RepFaction5)))
+        {
+            TC_LOG_ERROR("sql.sql", "Invalid fourth/fifth faction in `creature_onkill_reputation` for creature {}", creature_id);
+            continue;
         }
 
         _repOnKillStore[creature_id] = repOnKill;

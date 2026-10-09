@@ -6440,39 +6440,35 @@ void Player::RewardReputation(Unit* victim, float rate)
                     ChampioningFaction = GetChampioningFaction();
     }
 
+    // Each configured faction is rewarded once. Preserve the stock team rules.
+    uint32 const factions[] = { Rep->RepFaction1, Rep->RepFaction2, Rep->RepFaction3, Rep->RepFaction4, Rep->RepFaction5 };
+    int32 const values[] = { Rep->RepValue1, Rep->RepValue2, Rep->RepValue3, Rep->RepValue4, Rep->RepValue5 };
+    uint32 const caps[] = { Rep->ReputationMaxCap1, Rep->ReputationMaxCap2, Rep->ReputationMaxCap3, Rep->ReputationMaxCap4, Rep->ReputationMaxCap5 };
     uint32 team = GetTeam();
-
-    if (Rep->RepFaction1 && (!Rep->TeamDependent || IsNeutral() || team == ALLIANCE))
+    for (uint32 i = 0; i < 5; ++i)
     {
-        int32 donerep1 = CalculateReputationGain(REPUTATION_SOURCE_KILL, victim->GetLevel(), Rep->RepValue1, ChampioningFaction ? ChampioningFaction : Rep->RepFaction1);
-        donerep1 = int32(donerep1 * rate);
+        if (!factions[i] || (Rep->TeamDependent && !IsNeutral() &&
+            (i > 1 || (i == 0 && team != ALLIANCE) || (i == 1 && team != HORDE))))
+            continue;
 
-        FactionEntry const* factionEntry1 = sFactionStore.LookupEntry(ChampioningFaction ? ChampioningFaction : Rep->RepFaction1);
-        uint32 current_reputation_rank1 = GetReputationMgr().GetRank(factionEntry1);
-        if (factionEntry1)
-            GetReputationMgr().ModifyReputation(factionEntry1, donerep1, current_reputation_rank1 > Rep->ReputationMaxCap1);
-    }
+        uint32 factionId = ChampioningFaction ? ChampioningFaction : factions[i];
+        FactionEntry const* faction = sFactionStore.LookupEntry(factionId);
+        if (!faction)
+            continue;
+        int32 gain = int32(CalculateReputationGain(REPUTATION_SOURCE_KILL, victim->GetLevel(), values[i], factionId) * rate);
 
-    if (Rep->RepFaction2 && (!Rep->TeamDependent || IsNeutral() || team == HORDE))
-    {
-        int32 donerep2 = CalculateReputationGain(REPUTATION_SOURCE_KILL, victim->GetLevel(), Rep->RepValue2, ChampioningFaction ? ChampioningFaction : Rep->RepFaction2);
-        donerep2 = int32(donerep2 * rate);
+        // Direct rewards replace overlapping spillover, avoiding a second gain
+        // for a faction already explicitly rewarded by this same kill.
+        bool skipSpillover = false;
+        if (!ChampioningFaction)
+            if (RepSpilloverTemplate const* spillover = sObjectMgr->GetRepSpilloverTemplate(factionId))
+                for (uint32 target : spillover->faction)
+                    for (uint32 direct : factions)
+                        if (target && target == direct)
+                            skipSpillover = true;
 
-        FactionEntry const* factionEntry2 = sFactionStore.LookupEntry(ChampioningFaction ? ChampioningFaction : Rep->RepFaction2);
-        uint32 current_reputation_rank2 = GetReputationMgr().GetRank(factionEntry2);
-        if (factionEntry2)
-            GetReputationMgr().ModifyReputation(factionEntry2, donerep2, current_reputation_rank2 > Rep->ReputationMaxCap2);
-    }
-
-    if (Rep->RepFaction3 && (!Rep->TeamDependent || IsNeutral()))
-    {
-        int32 donerep3 = CalculateReputationGain(REPUTATION_SOURCE_KILL, victim->GetLevel(), Rep->RepValue3, ChampioningFaction ? ChampioningFaction : Rep->RepFaction3);
-        donerep3 = int32(donerep3 * rate);
-
-        FactionEntry const* factionEntry3 = sFactionStore.LookupEntry(ChampioningFaction ? ChampioningFaction : Rep->RepFaction3);
-        uint32 current_reputation_rank3 = GetReputationMgr().GetRank(factionEntry3);
-        if (factionEntry3)
-            GetReputationMgr().ModifyReputation(factionEntry3, donerep3, current_reputation_rank3 > Rep->ReputationMaxCap3);
+        GetReputationMgr().ModifyReputation(faction, gain,
+            GetReputationMgr().GetRank(faction) > caps[i], skipSpillover);
     }
 }
 
