@@ -1819,7 +1819,7 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
 
         static uint32 TeamForRace(uint8 race);
         static TeamId TeamIdForRace(uint8 race);
-        static bool IsNeutralRace(uint8 race) { return race == RACE_GOBLIN; }
+        static bool IsNeutralRace(uint8 race) { return race == RACE_GOBLIN || race == RACE_NAGA; }
         bool IsNeutral() const { return IsNeutralRace(GetRace()); }
         uint32 GetTeam() const { return m_team; }
         TeamId GetTeamId() const { return m_team == ALLIANCE ? TEAM_ALLIANCE : TEAM_HORDE; }

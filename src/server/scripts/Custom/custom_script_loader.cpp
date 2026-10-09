@@ -28,6 +28,7 @@ void AddSC_southport_manifests();
 void AddSC_southport_prestige();
 void AddSC_southport_riding();
 void AddSC_southport_goblin_racials();
+void AddSC_southport_naga_racials();
 void AddSC_southport_language_spells();
 
 // The name of this function should match:
@@ -44,6 +45,7 @@ void AddCustomScripts()
     AddSC_southport_prestige();
     AddSC_southport_riding();
     AddSC_southport_goblin_racials();
+    AddSC_southport_naga_racials();
     AddSC_southport_statues();
     AddSC_southport_language_spells();
 }

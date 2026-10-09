@@ -96,7 +96,7 @@ enum Races
     RACE_BLOODELF           = 10, // TITLE Blood Elf
     RACE_DRAENEI            = 11, // TITLE Draenei
     RACE_HIGHELF            = 12, // TITLE High Elf (uses the unused Fel Orc slot)
-    //RACE_NAGA               = 13,
+    RACE_NAGA               = 13, // TITLE Naga
     //RACE_BROKEN             = 14,
     //RACE_SKELETON           = 15,
     //RACE_VRYKUL             = 16,
@@ -122,7 +122,8 @@ enum Races
      (1<<(RACE_BLOODELF-1))      | \
      (1<<(RACE_DRAENEI-1))       | \
      (1<<(RACE_HIGHELF-1))       | \
-     (1<<(RACE_GOBLIN-1)))
+     (1<<(RACE_GOBLIN-1))        | \
+     (1<<(RACE_NAGA-1)))
 
 #define RACEMASK_ALLIANCE     \
     ((1<<(RACE_HUMAN-1))    | \
@@ -132,7 +133,7 @@ enum Races
      (1<<(RACE_DRAENEI-1))  | \
      (1<<(RACE_HIGHELF-1)))
 
-#define RACEMASK_NEUTRAL (1<<(RACE_GOBLIN-1))
+#define RACEMASK_NEUTRAL ((1<<(RACE_GOBLIN-1)) | (1<<(RACE_NAGA-1)))
 #define RACEMASK_HORDE (RACEMASK_ALL_PLAYABLE & ~(RACEMASK_ALLIANCE | RACEMASK_NEUTRAL))
 
 // Class value is index in ChrClasses.dbc

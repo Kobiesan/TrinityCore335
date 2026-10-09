@@ -8471,11 +8471,15 @@ void Unit::SetVisible(bool x)
 
 void Unit::UpdateSpeed(UnitMoveType mtype)
 {
+    // Fleet Footed uses the complete forward-run calculation (including slows,
+    // mounts and normalization), then sends a normal backward-speed packet.
+    bool const fleetFooted = IsPlayer() && HasAura(90178);
+    UnitMoveType const calculationType = fleetFooted && mtype == MOVE_RUN_BACK ? MOVE_RUN : mtype;
     int32 main_speed_mod  = 0;
     float stack_bonus     = 1.0f;
     float non_stack_bonus = 1.0f;
 
-    switch (mtype)
+    switch (calculationType)
     {
         // Only apply debuffs
         case MOVE_FLIGHT_BACK:
@@ -8556,7 +8560,7 @@ void Unit::UpdateSpeed(UnitMoveType mtype)
     if (main_speed_mod)
         AddPct(speed, main_speed_mod);
 
-    switch (mtype)
+    switch (calculationType)
     {
         case MOVE_RUN:
         case MOVE_SWIM:
@@ -8578,7 +8582,7 @@ void Unit::UpdateSpeed(UnitMoveType mtype)
                 }
 
                 // Use speed from aura
-                float max_speed = normalization / (IsControlledByPlayer() ? playerBaseMoveSpeed[mtype] : baseMoveSpeed[mtype]);
+                float max_speed = normalization / (IsControlledByPlayer() ? playerBaseMoveSpeed[calculationType] : baseMoveSpeed[calculationType]);
                 if (speed > max_speed)
                     speed = max_speed;
             }
@@ -8622,7 +8626,12 @@ void Unit::UpdateSpeed(UnitMoveType mtype)
             speed = min_speed;
     }
 
+    if (fleetFooted && mtype == MOVE_RUN_BACK)
+        speed *= playerBaseMoveSpeed[MOVE_RUN] / playerBaseMoveSpeed[MOVE_RUN_BACK];
+
     SetSpeedRate(mtype, speed);
+    if (fleetFooted && mtype == MOVE_RUN)
+        UpdateSpeed(MOVE_RUN_BACK);
 }
 
 float Unit::GetSpeed(UnitMoveType mtype) const
