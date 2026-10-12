@@ -5739,7 +5739,17 @@ SpellCastResult Spell::CheckCast(bool strict, uint32* param1 /*= nullptr*/, uint
                 // check lock compatibility
                 SpellCastResult res = CanOpenLock(spellEffectInfo, lockId, skillId, reqSkillValue, skillValue);
                 if (res != SPELL_CAST_OK)
+                {
+                    if (res == SPELL_FAILED_LOW_CASTLEVEL && skillId == SKILL_LOCKPICKING && param1 && param2)
+                    {
+                        *param1 = skillId;
+                        // Open Lock adds its spell bonus to the player's skill.
+                        // Report the required skill rank rather than that combined value.
+                        *param2 = uint32(std::max(0, reqSkillValue - (m_CastItem ? 0 : spellEffectInfo.CalcValue())));
+                        return SPELL_FAILED_MIN_SKILL;
+                    }
                     return res;
+                }
 
                 // chance for fail at lockpicking attempt
                 // second check prevent fail at rechecks
