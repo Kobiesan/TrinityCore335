@@ -1547,7 +1547,9 @@ SpellCastResult SpellInfo::CheckLocation(uint32 map_id, uint32 zone_id, uint32 a
         {
             uint32 const v_map = GetVirtualMapForMapAndZone(map_id, zone_id);
             MapEntry const* mapEntry = sMapStore.LookupEntry(v_map);
-            if (!mapEntry || mapEntry->Expansion() < 1 || !mapEntry->IsContinent())
+            // Old-world flight uses the same area flags as expansion continents.
+            // Keep mounts through area transitions on Eastern Kingdoms/Kalimdor.
+            if (!mapEntry || !mapEntry->IsContinent() || (mapEntry->Expansion() < 1 && v_map != 0 && v_map != 1))
                 return SPELL_FAILED_INCORRECT_AREA;
         }
     }
