@@ -16,6 +16,7 @@
  */
 
 #include "ChaseMovementGenerator.h"
+#include "AquaticChase.h"
 #include "Creature.h"
 #include "CreatureAI.h"
 #include "G3DPosition.hpp"
@@ -189,6 +190,10 @@ bool ChaseMovementGenerator::Update(Unit* owner, uint32 diff)
                 target->GetNearPoint(owner, x, y, z, (moveToward ? maxTarget : minTarget) - hitboxSum, angle ? target->ToAbsoluteAngle(angle->RelativeAngle) : target->GetAbsoluteAngle(owner));
                 shortenPath = false;
             }
+
+            Position waterPosition;
+            if (cOwner && GetAquaticJumpChasePosition(target, cOwner, waterPosition))
+                z = waterPosition.GetPositionZ();
 
             if (owner->IsHovering())
                 owner->UpdateAllowedPositionZ(x, y, z);

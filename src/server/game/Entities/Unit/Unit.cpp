@@ -16,6 +16,7 @@
  */
 
 #include "Unit.h"
+#include "AquaticChase.h"
 #include "AbstractFollower.h"
 #include "Battlefield.h"
 #include "BattlefieldMgr.h"
@@ -3183,12 +3184,39 @@ bool Unit::isInBackInMap(Unit const* target, float distance, float arc) const
     return IsWithinDistInMap(target, distance) && !HasInArc(2 * float(M_PI) - arc, target);
 }
 
+bool GetAquaticJumpChasePosition(Unit const* target, Creature const* pursuer, Position& waterPosition)
+{
+    // Do not grant new aggro, allow pursuit onto land, or affect normal walkers/flyers.
+    if (!target->IsPlayer() || !target->IsFalling() || !target->IsInCombatWith(pursuer)
+        || !pursuer->CanEnterWater() || pursuer->CanWalk() || pursuer->CanFly())
+        return false;
+
+    LiquidData liquid{};
+    ZLiquidStatus status = target->GetMap()->GetLiquidStatus(target->GetPhaseMask(),
+        target->GetPositionX(), target->GetPositionY(), target->GetPositionZ(), {}, &liquid,
+        target->GetCollisionHeight());
+    if ((status != LIQUID_MAP_ABOVE_WATER && status != LIQUID_MAP_WATER_WALK)
+        || !(liquid.type_flags & (MAP_LIQUID_TYPE_WATER | MAP_LIQUID_TYPE_OCEAN))
+        || liquid.level - liquid.depth_level < 0.5f
+        || target->GetPositionZ() - liquid.level > 6.0f)
+        return false;
+
+    // Chase the water beneath the airborne target, never the target's air position.
+    waterPosition.Relocate(target->GetPositionX(), target->GetPositionY(),
+        std::max(liquid.depth_level + 0.05f,
+            liquid.level - std::max(0.1f, pursuer->GetCollisionHeight() * 0.5f)));
+    return true;
+}
+
 bool Unit::isInAccessiblePlaceFor(Creature const* c) const
 {
     if (IsInWater())
         return c->CanEnterWater();
-    else
-        return c->CanWalk() || c->CanFly();
+    if (c->CanWalk() || c->CanFly())
+        return true;
+
+    Position waterPosition;
+    return GetAquaticJumpChasePosition(this, c, waterPosition);
 }
 
 bool Unit::IsInWater() const
