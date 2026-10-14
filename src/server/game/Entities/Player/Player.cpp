@@ -2544,38 +2544,26 @@ bool Player::IsMaxLevel() const
 void Player::InitTalentForLevel()
 {
     uint8 level = GetLevel();
-    // talents base at level diff (talents = level - 9 but some can be used already)
-    if (level < 10)
+
+    if (level < sWorld->getIntConfig(CONFIG_MIN_DUALSPEC_LEVEL) || GetTalentGroupsCount() == 0)
     {
-        // Remove all talent points
-        if (GetUsedTalentCount() > 0)                           // Free any used talents
-        {
+        SetTalentGroupsCount(1);
+        SetActiveTalentGroup(0);
+    }
+
+    uint32 talentPointsForLevel = CalculateTalentsPoints();
+
+    // if used more that have then reset
+    if (GetUsedTalentCount() > talentPointsForLevel)
+    {
+        if (!GetSession()->HasPermission(rbac::RBAC_PERM_SKIP_CHECK_MORE_TALENTS_THAN_ALLOWED))
             ResetTalents(true);
-            SetFreeTalentPoints(0);
-        }
-    }
-    else
-    {
-        if (level < sWorld->getIntConfig(CONFIG_MIN_DUALSPEC_LEVEL) || GetTalentGroupsCount() == 0)
-        {
-            SetTalentGroupsCount(1);
-            SetActiveTalentGroup(0);
-        }
-
-        uint32 talentPointsForLevel = CalculateTalentsPoints();
-
-        // if used more that have then reset
-        if (GetUsedTalentCount() > talentPointsForLevel)
-        {
-            if (!GetSession()->HasPermission(rbac::RBAC_PERM_SKIP_CHECK_MORE_TALENTS_THAN_ALLOWED))
-                ResetTalents(true);
-            else
-                SetFreeTalentPoints(0);
-        }
-        // else update amount of free points
         else
-            SetFreeTalentPoints(talentPointsForLevel - GetUsedTalentCount());
+            SetFreeTalentPoints(0);
     }
+    // else update amount of free points
+    else
+        SetFreeTalentPoints(talentPointsForLevel - GetUsedTalentCount());
 
     if (!GetSession()->PlayerLoading())
         SendTalentsInfoData(false); // update at client
@@ -24840,12 +24828,12 @@ void Player::StoreLootItem(uint8 lootSlot, Loot* loot)
 
 uint32 Player::CalculateTalentsPoints() const
 {
-    uint32 baseForLevel = GetLevel() < 10 ? 0 : GetLevel() - 9;
+    uint32 baseForLevel = GetLevel();
 
     if (GetClass() != CLASS_DEATH_KNIGHT || GetMapId() != 609)
         return uint32(baseForLevel * sWorld->getRate(RATE_TALENT));
 
-    uint32 talentPointsForLevel = GetLevel() < 56 ? 0 : GetLevel() - 55;
+    uint32 talentPointsForLevel = baseForLevel;
     talentPointsForLevel += GetQuestRewardedTalentCount();
 
     if (talentPointsForLevel > baseForLevel)
