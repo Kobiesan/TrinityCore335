@@ -23363,10 +23363,16 @@ float Player::GetReputationPriceDiscount(Creature const* creature) const
     return GetReputationPriceDiscount(creature->GetFactionTemplateEntry());
 }
 
+constexpr uint32 SPELL_GOBLIN_BEST_DEALS_ANYWHERE = 500135;
+
 float Player::GetReputationPriceDiscount(FactionTemplateEntry const* factionTemplate) const
 {
     if (!factionTemplate || !factionTemplate->Faction)
         return 1.0f;
+
+    // Goblin racial "Best Deals Anywhere": always the best (Exalted) vendor/repair discount.
+    if (HasSpell(SPELL_GOBLIN_BEST_DEALS_ANYWHERE))
+        return 1.0f - 0.05f * (REP_EXALTED - REP_NEUTRAL);
 
     ReputationRank rank = GetReputationRank(factionTemplate->Faction);
     if (rank <= REP_NEUTRAL)
