@@ -86,6 +86,7 @@ class LootTemplate::LootGroup                               // A set of loot def
 
         void AddEntry(LootStoreItem* item);                 // Adds an entry to the group (at loading stage)
         bool HasQuestDrop() const;                          // True if group includes at least 1 quest drop entry
+        bool HasNonQuestDrop() const;                       // True if group includes at least 1 non-quest drop entry
         bool HasQuestDropForPlayer(Player const* player) const;
                                                             // The same for active quests of the player
         void Process(Loot& loot, uint16 lootMode) const;    // Rolls an item from the group (if any) and adds the item to the loot
@@ -203,6 +204,16 @@ bool LootStore::HaveQuestLootFor(uint32 loot_id) const
 
     // scan loot for quest items
     return itr->second->HasQuestDrop();
+}
+
+bool LootStore::HaveNonQuestLootFor(uint32 loot_id) const
+{
+    LootTemplateMap::const_iterator itr = m_LootTemplates.find(loot_id);
+    if (itr == m_LootTemplates.end())
+        return false;
+
+    // scan loot for non-quest items
+    return itr->second->HasNonQuestDrop();
 }
 
 bool LootStore::HaveQuestLootForPlayer(uint32 loot_id, Player const* player) const
@@ -410,6 +421,20 @@ bool LootTemplate::LootGroup::HasQuestDrop() const
 
     for (LootStoreItemList::const_iterator i = EqualChanced.begin(); i != EqualChanced.end(); ++i)
         if ((*i)->needs_quest)
+            return true;
+
+    return false;
+}
+
+// True if group includes at least 1 non-quest drop entry
+bool LootTemplate::LootGroup::HasNonQuestDrop() const
+{
+    for (LootStoreItemList::const_iterator i = ExplicitlyChanced.begin(); i != ExplicitlyChanced.end(); ++i)
+        if (!(*i)->needs_quest)
+            return true;
+
+    for (LootStoreItemList::const_iterator i = EqualChanced.begin(); i != EqualChanced.end(); ++i)
+        if (!(*i)->needs_quest)
             return true;
 
     return false;
@@ -636,6 +661,44 @@ bool LootTemplate::HasQuestDrop(uint8 groupId) const
     for (LootGroups::const_iterator i = Groups.begin(); i != Groups.end(); ++i)
         if (LootGroup* group = *i)
             if (group->HasQuestDrop())
+                return true;
+
+    return false;
+}
+
+// True if template includes at least 1 non-quest drop entry
+bool LootTemplate::HasNonQuestDrop(uint8 groupId) const
+{
+    if (groupId)                                            // Group reference
+    {
+        if (groupId > Groups.size())
+            return false;                                   // Error message [should be] already printed at loading stage
+
+        if (!Groups[groupId - 1])
+            return false;
+
+        return Groups[groupId-1]->HasNonQuestDrop();
+    }
+
+    for (LootStoreItemList::const_iterator i = Entries.begin(); i != Entries.end(); ++i)
+    {
+        LootStoreItem* item = *i;
+        if (item->reference > 0)                            // References
+        {
+            LootTemplate const* Referenced = LootTemplates_Reference.GetLootFor(item->reference);
+            if (!Referenced)
+                continue;                                   // Error message [should be] already printed at loading stage
+            if (Referenced->HasNonQuestDrop(item->groupid))
+                return true;
+        }
+        else if (!item->needs_quest)
+            return true;                                    // non-quest drop found
+    }
+
+    // Now processing groups
+    for (LootGroups::const_iterator i = Groups.begin(); i != Groups.end(); ++i)
+        if (LootGroup* group = *i)
+            if (group->HasNonQuestDrop())
                 return true;
 
     return false;

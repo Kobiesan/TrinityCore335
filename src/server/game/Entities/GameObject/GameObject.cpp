@@ -2704,7 +2704,15 @@ void GameObject::BuildValuesUpdate(uint8 updateType, ByteBuffer* data, Player co
     if (!target)
         return;
 
-    bool forcedFlags = GetGoType() == GAMEOBJECT_TYPE_CHEST && GetGOInfo()->chest.groupLootRules && HasLootRecipient();
+    bool forcedFlags = false;
+    if (GetGoType() == GAMEOBJECT_TYPE_CHEST)
+    {
+        if (GetGOInfo()->chest.groupLootRules && HasLootRecipient())
+            forcedFlags = true;
+        else if (uint32 lootId = GetGOInfo()->GetLootId())
+            forcedFlags = LootTemplates_Gameobject.HaveQuestLootFor(lootId) && !LootTemplates_Gameobject.HaveNonQuestLootFor(lootId);
+    }
+
     bool targetIsGM = target->IsGameMaster();
 
     ByteBuffer fieldBuffer;
@@ -2766,8 +2774,18 @@ void GameObject::BuildValuesUpdate(uint8 updateType, ByteBuffer* data, Player co
             {
                 uint32 goFlags = m_uint32Values[GAMEOBJECT_FLAGS];
                 if (GetGoType() == GAMEOBJECT_TYPE_CHEST)
+                {
                     if (GetGOInfo()->chest.groupLootRules && !IsLootAllowedFor(target))
                         goFlags |= GO_FLAG_LOCKED | GO_FLAG_NOT_SELECTABLE;
+                    else if (uint32 lootId = GetGOInfo()->GetLootId())
+                    {
+                        bool haveQuest = LootTemplates_Gameobject.HaveQuestLootFor(lootId);
+                        bool haveNonQuest = LootTemplates_Gameobject.HaveNonQuestLootFor(lootId);
+                        bool needs = LootTemplates_Gameobject.HaveQuestLootForPlayer(lootId, target);
+                        if (haveQuest && !haveNonQuest && !needs)
+                            goFlags |= GO_FLAG_NOT_SELECTABLE;
+                    }
+                }
 
                 fieldBuffer << goFlags;
             }

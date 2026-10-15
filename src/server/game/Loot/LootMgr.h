@@ -77,6 +77,7 @@ class TC_GAME_API LootStore
 
         bool HaveLootFor(uint32 loot_id) const { return m_LootTemplates.find(loot_id) != m_LootTemplates.end(); }
         bool HaveQuestLootFor(uint32 loot_id) const;
+        bool HaveNonQuestLootFor(uint32 loot_id) const;
         bool HaveQuestLootForPlayer(uint32 loot_id, Player const* player) const;
 
         LootTemplate const* GetLootFor(uint32 loot_id) const;
@@ -114,6 +115,8 @@ class TC_GAME_API LootTemplate
 
         // True if template includes at least 1 quest drop entry
         bool HasQuestDrop(uint8 groupId = 0) const;
+        // True if template includes at least 1 non-quest drop entry
+        bool HasNonQuestDrop(uint8 groupId = 0) const;
         // True if template includes at least 1 quest drop for an active quest of the player
         bool HasQuestDropForPlayer(Player const* player, uint8 groupId = 0) const;
 
