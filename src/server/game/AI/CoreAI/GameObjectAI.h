@@ -54,6 +54,9 @@ class TC_GAME_API GameObjectAI
         // Called when the dialog status between a player and the gameobject is requested.
         virtual Optional<QuestGiverStatus> GetDialogStatus(Player* /*player*/) { return {}; }
 
+        // Optional per-viewer eligibility. Unset preserves native object behavior.
+        virtual Optional<bool> CanInteractWith(Player const* /*player*/) const { return {}; }
+
         // Called when a player opens a gossip dialog with the gameobject.
         virtual bool OnGossipHello(Player* /*player*/) { return false; }
 

@@ -30,6 +30,7 @@ void AddSC_southport_riding();
 void AddSC_southport_goblin_racials();
 void AddSC_southport_naga_racials();
 void AddSC_southport_language_spells();
+void AddSC_blackgold_refinery();
 
 // The name of this function should match:
 // void Add${NameOfDirectory}Scripts()
@@ -48,4 +49,5 @@ void AddCustomScripts()
     AddSC_southport_naga_racials();
     AddSC_southport_statues();
     AddSC_southport_language_spells();
+    AddSC_blackgold_refinery();
 }

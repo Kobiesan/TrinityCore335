@@ -1620,6 +1620,9 @@ void GameObject::Use(Unit* user)
 
     if (Player* playerUser = user->ToPlayer())
     {
+        if (auto allowed = AI()->CanInteractWith(playerUser); allowed && !*allowed)
+            return;
+
         if (m_goInfo->CannotBeUsedUnderImmunity() && playerUser->HasUnitFlag(UNIT_FLAG_IMMUNE))
             return;
 
@@ -2704,13 +2707,14 @@ void GameObject::BuildValuesUpdate(uint8 updateType, ByteBuffer* data, Player co
     if (!target)
         return;
 
-    bool forcedFlags = false;
+    Optional<bool> const interaction = AI() ? AI()->CanInteractWith(target) : Optional<bool>{};
+    bool forcedFlags = interaction.has_value();
     if (GetGoType() == GAMEOBJECT_TYPE_CHEST)
     {
         if (GetGOInfo()->chest.groupLootRules && HasLootRecipient())
             forcedFlags = true;
         else if (uint32 lootId = GetGOInfo()->GetLootId())
-            forcedFlags = LootTemplates_Gameobject.HaveQuestLootFor(lootId) && !LootTemplates_Gameobject.HaveNonQuestLootFor(lootId);
+            forcedFlags |= LootTemplates_Gameobject.HaveQuestLootFor(lootId) && !LootTemplates_Gameobject.HaveNonQuestLootFor(lootId);
     }
 
     bool targetIsGM = target->IsGameMaster();
@@ -2786,6 +2790,10 @@ void GameObject::BuildValuesUpdate(uint8 updateType, ByteBuffer* data, Player co
                             goFlags |= GO_FLAG_NOT_SELECTABLE;
                     }
                 }
+
+                // Serialize only for this viewer; never lock the shared object.
+                if (interaction && !*interaction)
+                    goFlags |= GO_FLAG_NOT_SELECTABLE;
 
                 fieldBuffer << goFlags;
             }
