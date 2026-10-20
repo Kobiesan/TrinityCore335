@@ -6826,6 +6826,104 @@ void Player::UpdateArea(uint32 newArea)
         RemoveRestFlag(REST_FLAG_IN_FACTION_AREA);
 }
 
+namespace
+{
+uint32 GetCapitalFactionId(uint32 zoneId)
+{
+    switch (zoneId)
+    {
+        case 1519: return 72;  // Stormwind
+        case 1537: return 47;  // Ironforge
+        case 1657: return 69;  // Darnassus
+        case 3557: return 930; // Exodar
+        case 1637: return 76;  // Orgrimmar
+        case 1497: return 68;  // Undercity
+        case 1638: return 81;  // Thunder Bluff
+        case 3487: return 911; // Silvermoon
+        default: return 0;
+    }
+}
+}
+
+void Player::UpdateReputationArea(uint32 factionId)
+{
+    if (!IsInWorld())
+        return;
+
+    AreaTableEntry const* zone = sAreaTableStore.LookupEntry(GetZoneId());
+    if (!zone || InBattleground() || (zone->Flags & AREA_FLAG_WINTERGRASP) ||
+        (zone->FactionGroupMask != AREATEAM_ALLY && zone->FactionGroupMask != AREATEAM_HORDE))
+        return;
+
+    uint32 const cityFaction = GetCapitalFactionId(GetZoneId());
+    bool const opposingCapital = cityFaction && (zone->Flags & AREA_FLAG_CAPITAL) &&
+        ((zone->FactionGroupMask == AREATEAM_ALLY && GetTeam() != ALLIANCE) ||
+         (zone->FactionGroupMask == AREATEAM_HORDE && GetTeam() != HORDE));
+    if (!IsNeutral() && !opposingCapital)
+        return;
+
+    uint32 const parentFaction = zone->FactionGroupMask == AREATEAM_ALLY ? 469 : 67;
+    uint32 const relevantFaction = cityFaction ? cityFaction : parentFaction;
+    if (factionId == relevantFaction || factionId == parentFaction)
+        UpdateZonePvPAndRest();
+}
+
+void Player::UpdateZonePvPAndRest()
+{
+    AreaTableEntry const* zone = sAreaTableStore.LookupEntry(GetZoneId());
+    if (!zone)
+        return;
+
+    // in PvP, any not controlled zone (except zone->FactionGroupMask == 6, default case)
+    // in PvE, only opposition team capital
+    switch (zone->FactionGroupMask)
+    {
+        case AREATEAM_ALLY:
+            pvpInfo.IsInHostileArea = GetTeam() != ALLIANCE && (sWorld->IsPvPRealm() || zone->Flags & AREA_FLAG_CAPITAL);
+            break;
+        case AREATEAM_HORDE:
+            pvpInfo.IsInHostileArea = GetTeam() != HORDE && (sWorld->IsPvPRealm() || zone->Flags & AREA_FLAG_CAPITAL);
+            break;
+        case AREATEAM_NONE:
+            // overwrite for battlegrounds, maybe batter some zone flags but current known not 100% fit to this
+            pvpInfo.IsInHostileArea = sWorld->IsPvPRealm() || InBattleground() || zone->Flags & AREA_FLAG_WINTERGRASP;
+            break;
+        default:                                            // 6 in fact
+            pvpInfo.IsInHostileArea = false;
+            break;
+    }
+
+    // Earned peace unlocks opposing capitals. Neutral races retain their
+    // reputation policy in both sides' territory, including parent fallbacks.
+    // Battlegrounds and Wintergrasp continue to use native PvP rules.
+    uint32 const cityFaction = GetCapitalFactionId(GetZoneId());
+    bool const opposingCapital = cityFaction && (zone->Flags & AREA_FLAG_CAPITAL) &&
+        ((zone->FactionGroupMask == AREATEAM_ALLY && GetTeam() != ALLIANCE) ||
+         (zone->FactionGroupMask == AREATEAM_HORDE && GetTeam() != HORDE));
+    if ((IsNeutral() || opposingCapital) && !InBattleground() && !(zone->Flags & AREA_FLAG_WINTERGRASP) &&
+        (zone->FactionGroupMask == AREATEAM_ALLY || zone->FactionGroupMask == AREATEAM_HORDE))
+    {
+        uint32 const factionId = cityFaction ? cityFaction : (zone->FactionGroupMask == AREATEAM_ALLY ? 469 : 67);
+        bool hostileReputation = GetReputationRank(factionId) <= REP_HOSTILE ||
+            GetReputationMgr().IsAtWar(factionId);
+        pvpInfo.IsInHostileArea = hostileReputation &&
+            (sWorld->IsPvPRealm() || (zone->Flags & AREA_FLAG_CAPITAL));
+    }
+
+    // Treat players having a quest flagging for PvP as always in hostile area
+    pvpInfo.IsHostile = pvpInfo.IsInHostileArea || HasPvPForcingQuest();
+
+    if ((zone->Flags & AREA_FLAG_CAPITAL) && (!pvpInfo.IsHostile || zone->IsSanctuary()))
+        SetRestFlag(REST_FLAG_IN_CITY);
+    else
+        RemoveRestFlag(REST_FLAG_IN_CITY);
+
+    if (zone->Flags & AREA_FLAG_CAPITAL)
+        pvpInfo.IsInNoPvPArea = true;
+
+    UpdatePvPState();
+}
+
 void Player::UpdateZone(uint32 newZone, uint32 newArea)
 {
     if (!IsInWorld())
@@ -6860,63 +6958,7 @@ void Player::UpdateZone(uint32 newZone, uint32 newArea)
 
     GetMap()->SendZoneDynamicInfo(newZone, this);
 
-    // in PvP, any not controlled zone (except zone->FactionGroupMask == 6, default case)
-    // in PvE, only opposition team capital
-    switch (zone->FactionGroupMask)
-    {
-        case AREATEAM_ALLY:
-            pvpInfo.IsInHostileArea = GetTeam() != ALLIANCE && (sWorld->IsPvPRealm() || zone->Flags & AREA_FLAG_CAPITAL);
-            break;
-        case AREATEAM_HORDE:
-            pvpInfo.IsInHostileArea = GetTeam() != HORDE && (sWorld->IsPvPRealm() || zone->Flags & AREA_FLAG_CAPITAL);
-            break;
-        case AREATEAM_NONE:
-            // overwrite for battlegrounds, maybe batter some zone flags but current known not 100% fit to this
-            pvpInfo.IsInHostileArea = sWorld->IsPvPRealm() || InBattleground() || zone->Flags & AREA_FLAG_WINTERGRASP;
-            break;
-        default:                                            // 6 in fact
-            pvpInfo.IsInHostileArea = false;
-            break;
-    }
-
-    // Neutral goblins enter either side's cities according to earned reputation.
-    // Keep battleground and Wintergrasp hostility governed by the PvP rules above.
-    if (IsNeutral() && !InBattleground() && !(zone->Flags & AREA_FLAG_WINTERGRASP) &&
-        (zone->FactionGroupMask == AREATEAM_ALLY || zone->FactionGroupMask == AREATEAM_HORDE))
-    {
-        uint32 factionId = zone->FactionGroupMask == AREATEAM_ALLY ? 469 : 67;
-        switch (newZone)
-        {
-            case 1519: factionId = 72; break;  // Stormwind
-            case 1537: factionId = 47; break;  // Ironforge
-            case 1657: factionId = 69; break;  // Darnassus
-            case 3557: factionId = 930; break; // Exodar
-            case 1637: factionId = 76; break;  // Orgrimmar
-            case 1497: factionId = 68; break;  // Undercity
-            case 1638: factionId = 81; break;  // Thunder Bluff
-            case 3487: factionId = 911; break; // Silvermoon
-            default: break;
-        }
-        bool hostileReputation = GetReputationRank(factionId) <= REP_HOSTILE ||
-            GetReputationMgr().IsAtWar(factionId);
-        pvpInfo.IsInHostileArea = hostileReputation &&
-            (sWorld->IsPvPRealm() || (zone->Flags & AREA_FLAG_CAPITAL));
-    }
-
-    // Treat players having a quest flagging for PvP as always in hostile area
-    pvpInfo.IsHostile = pvpInfo.IsInHostileArea || HasPvPForcingQuest();
-
-    if (zone->Flags & AREA_FLAG_CAPITAL) // Is in a capital city
-    {
-        if (!pvpInfo.IsHostile || zone->IsSanctuary())
-            SetRestFlag(REST_FLAG_IN_CITY);
-
-        pvpInfo.IsInNoPvPArea = true;
-    }
-    else
-        RemoveRestFlag(REST_FLAG_IN_CITY); // Recently left a capital city
-
-    UpdatePvPState();
+    UpdateZonePvPAndRest();
 
     // remove items with area/map limitations (delete only for alive player to allow back in ghost mode)
     // if player resurrected at teleport this will be applied in resurrect code
@@ -16459,8 +16501,7 @@ void Player::MoneyChanged(uint32 count)
 
 void Player::ReputationChanged(FactionEntry const* factionEntry)
 {
-    if (IsNeutral() && IsInWorld())
-        UpdateZone(GetZoneId(), GetAreaId());
+    UpdateReputationArea(factionEntry->ID);
 
     for (uint8 i = 0; i < MAX_QUEST_LOG_SIZE; ++i)
     {

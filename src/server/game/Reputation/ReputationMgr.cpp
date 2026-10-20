@@ -540,8 +540,7 @@ void ReputationMgr::SetAtWar(RepListID repListID, bool on)
     ReconcileCategoryWarFlags();
     SendInitialReputations();
 
-    if (_player->IsNeutral() && _player->IsInWorld())
-        _player->UpdateZone(_player->GetZoneId(), _player->GetAreaId());
+    _player->UpdateReputationArea(itr->second.ID);
 }
 
 void ReputationMgr::ReconcileCategoryWarFlags()
@@ -586,6 +585,10 @@ void ReputationMgr::ReconcileCategoryWarFlags()
 
 void ReputationMgr::SetAtWar(FactionState* faction, bool atWar) const
 {
+    // Hostile standings mandate war, even when the client requests peace.
+    if (!atWar && GetRank(sFactionStore.AssertEntry(faction->ID)) <= REP_HOSTILE)
+        return;
+
     // Do not allow to declare war to our own faction. But allow for rival factions (eg Aldor vs Scryer).
     if (atWar && faction->Flags.HasFlag(ReputationFlags::Peaceful) && GetRank(sFactionStore.AssertEntry(faction->ID)) > REP_HATED)
         return;

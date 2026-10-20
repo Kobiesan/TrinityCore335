@@ -2690,6 +2690,17 @@ ReputationRank WorldObject::GetReactionTo(WorldObject const* target) const
 
     Unit const* unit = Coalesce<const Unit>(ToUnit(), selfPlayerOwner);
     Unit const* targetUnit = Coalesce<const Unit>(target->ToUnit(), targetPlayerOwner);
+
+    // Declared reputation wars must also reach combat/threat setup, which
+    // checks reactions independently of attack-target validation.
+    if (selfPlayerOwner && targetUnit && !targetUnit->HasUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED) &&
+        !selfPlayerOwner->HasUnitFlag2(UNIT_FLAG2_IGNORE_REPUTATION))
+        if (FactionTemplateEntry const* factionTemplate = targetUnit->GetFactionTemplateEntry())
+            if (FactionEntry const* faction = sFactionStore.LookupEntry(factionTemplate->Faction))
+                if (faction->CanHaveReputation() && selfPlayerOwner->GetReputationMgr().IsAtWar(faction))
+                    return REP_HOSTILE;
+
+
     if (unit && unit->HasUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED))
     {
         if (targetUnit && targetUnit->HasUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED))

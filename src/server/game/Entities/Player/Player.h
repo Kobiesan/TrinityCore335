@@ -1575,6 +1575,8 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
         void UpdatePvP(bool state, bool override = false);
         void UpdateZone(uint32 newZone, uint32 newArea);
         void UpdateArea(uint32 newArea);
+        void UpdateZonePvPAndRest();
+        void UpdateReputationArea(uint32 factionId);
         void SetNeedsZoneUpdate(bool needsUpdate) { m_needsZoneUpdate = needsUpdate; }
 
         void UpdateZoneDependentAuras(uint32 zone_id);    // zones

@@ -2473,8 +2473,13 @@ bool Creature::CanAssistTo(Unit const* u, Unit const* enemy, bool checkfaction /
     if (!CombatManager::CanBeginCombat(this, enemy) || !IsValidAttackTarget(enemy))
         return false;
 
-    // skip non hostile to caster enemy creatures
-    if (!IsHostileTo(enemy))
+    // AtWar players can remain neutral from the defender's point of view.
+    // Defend the actual caller, including against a player's pet; unrelated
+    // combat with another faction member must not qualify this request.
+    Player const* enemyPlayer = enemy->GetCharmerOrOwnerPlayerOrPlayerItself();
+    if (!IsHostileTo(enemy) && !(enemy->HasUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED) && enemyPlayer &&
+        !enemy->HasUnitFlag2(UNIT_FLAG2_IGNORE_REPUTATION) && !enemyPlayer->HasUnitFlag2(UNIT_FLAG2_IGNORE_REPUTATION) &&
+        sharesFaction(u) && enemy->IsInCombatWith(u)))
         return false;
 
     return true;
