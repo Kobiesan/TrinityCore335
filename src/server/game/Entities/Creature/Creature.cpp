@@ -2407,10 +2407,14 @@ bool Creature::CanAssistTo(Unit const* u, Unit const* enemy, bool checkfaction /
         return false;
 
     // we don't need help from non-combatant ;)
-    if (IsCivilian())
+    if (IsCivilian() && !(GetCreatureTemplate()->flags_extra & CREATURE_FLAG_EXTRA_SOCIAL_AGGRO))
         return false;
 
-    if (HasUnitFlag(UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_UNINTERACTIBLE) || IsImmuneToNPC())
+    if (HasUnitFlag(UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_UNINTERACTIBLE))
+        return false;
+
+    // Use the same player-control distinction as attack validation, including pets.
+    if (IsImmuneToNPC() && !enemy->HasUnitFlag(UNIT_FLAG_PLAYER_CONTROLLED))
         return false;
 
     // skip fighting creature
@@ -2421,10 +2425,29 @@ bool Creature::CanAssistTo(Unit const* u, Unit const* enemy, bool checkfaction /
     if (!GetCharmerOrOwnerGUID().IsEmpty())
         return false;
 
+    // Group creatures by reputation faction, not by exact FactionTemplate. A
+    // city fields several templates that all resolve to the same faction
+    // (Stormwind, for example, uses 11, 12, 123, 1078 and 1575, which all point
+    // at faction 72), so its NPCs must still defend one another.
+    FactionTemplateEntry const* myFactionTemplate = GetFactionTemplateEntry();
+    uint32 const myReputationFaction = myFactionTemplate ? myFactionTemplate->Faction : 0;
+    auto sharesFaction = [this, myFactionTemplate, myReputationFaction](Unit const* other) -> bool
+    {
+        FactionTemplateEntry const* otherFactionTemplate = other->GetFactionTemplateEntry();
+        uint32 const otherReputationFaction = otherFactionTemplate ? otherFactionTemplate->Faction : 0;
+        if ((myReputationFaction && otherReputationFaction == myReputationFaction) || other->GetFaction() == GetFaction())
+            return true;
+
+        // Allied factions defend each other too: every Alliance city stands with
+        // the others, and every Horde city with the others. Neutrals and the
+        // opposite faction are not friendly, so they remain excluded.
+        return myFactionTemplate && otherFactionTemplate && myFactionTemplate->IsFriendlyTo(*otherFactionTemplate);
+    };
+
     // only from same creature faction
     if (checkfaction)
     {
-        if (GetFaction() != u->GetFaction())
+        if (!sharesFaction(u))
             return false;
     }
     else
@@ -2432,6 +2455,23 @@ bool Creature::CanAssistTo(Unit const* u, Unit const* enemy, bool checkfaction /
         if (!IsFriendlyTo(u))
             return false;
     }
+
+    // Vanilla social assistance: non-humanoid helpers only join when their
+    // faction template responds to calls for help (FactionTemplate flag 0x1)
+    // or the explicit SOCIAL_AGGRO override is set. This keeps ordinary beasts
+    // (for example Diseased Young Wolf, faction template 32) non-social while
+    // letting flagged cubs/mothers/packs and responding beast factions assist.
+    if (checkfaction && GetCreatureTemplate()->type != CREATURE_TYPE_HUMANOID)
+    {
+        bool const respondsToHelp = myFactionTemplate && (myFactionTemplate->Flags & FACTION_TEMPLATE_FLAG_RESPOND_TO_CALL_FOR_HELP);
+        if (!respondsToHelp && !(GetCreatureTemplate()->flags_extra & CREATURE_FLAG_EXTRA_SOCIAL_AGGRO))
+            return false;
+    }
+
+    // Assistance must still be able to create combat and attack the enemy.
+    // This preserves immunity, forced friendship, AtWar, GM and combat-disable rules.
+    if (!CombatManager::CanBeginCombat(this, enemy) || !IsValidAttackTarget(enemy))
+        return false;
 
     // skip non hostile to caster enemy creatures
     if (!IsHostileTo(enemy))
