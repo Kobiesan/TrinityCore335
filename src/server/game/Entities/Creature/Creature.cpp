@@ -2342,6 +2342,10 @@ void Creature::CallAssistance()
 
         if (radius > 0)
         {
+            // Vanilla social aggro uses the creature's level-based aggro radius
+            // (about 20 yards at equal level, up to 45), not a fixed 10 yards.
+            radius = std::max(radius, GetAttackDistance(GetVictim()));
+
             std::list<Creature*> assistList;
             Trinity::AnyAssistCreatureInRangeCheck u_check(this, GetVictim(), radius);
             Trinity::CreatureListSearcher<Trinity::AnyAssistCreatureInRangeCheck> searcher(this, assistList, u_check);
