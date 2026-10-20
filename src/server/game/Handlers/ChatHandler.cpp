@@ -135,7 +135,12 @@ void WorldSession::HandleChatMessage(ChatMsg type, Language lang, std::string ms
                 { LANG_COMMON,     98  }, { LANG_ORCISH,     109 }, { LANG_DWARVISH,   111 },
                 { LANG_DARNASSIAN, 113 }, { LANG_TAURAHE,    115 }, { LANG_GNOMISH,    313 },
                 { LANG_TROLL,      315 }, { LANG_GUTTERSPEAK,673 }, { LANG_THALASSIAN, 137 },
-                { LANG_DRAENEI,    759 },
+                { LANG_DRAENEI,    759 }, { LANG_GOBLIN,     SKILL_LANG_GOBLIN },
+                { LANG_NAZJA,      SKILL_LANG_NAZJA }, { LANG_OGRE,       SKILL_LANG_OGRE },
+                { LANG_FURBOLG,    SKILL_LANG_FURBOLG }, { LANG_NERGLISH,   SKILL_LANG_NERGLISH },
+                { LANG_QIRAJI,     SKILL_LANG_QIRAJI }, { LANG_QUILBOAR,   SKILL_LANG_QUILBOAR },
+                { LANG_KALIMAG,    SKILL_LANG_KALIMAG }, { LANG_SCOURGE,    SKILL_LANG_SCOURGE },
+                { LANG_NERUBIAN,   SKILL_LANG_NERUBIAN },
             };
 
             Language fallback = LANG_UNIVERSAL;
