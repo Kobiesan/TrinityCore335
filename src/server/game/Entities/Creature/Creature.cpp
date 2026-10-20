@@ -255,7 +255,7 @@ Creature::Creature(bool isWorldObject): Unit(isWorldObject), MapObject(), m_grou
     m_corpseRemoveTime(0), m_respawnTime(0), m_respawnDelay(300), m_corpseDelay(60), m_ignoreCorpseDecayRatio(false), m_wanderDistance(0.0f),
     m_boundaryCheckTime(2500), m_combatPulseTime(0), m_combatPulseDelay(0), m_reactState(REACT_AGGRESSIVE),
     m_defaultMovementType(IDLE_MOTION_TYPE), m_spawnId(0), m_equipmentId(0), m_originalEquipmentId(0),
-    m_AlreadyCallAssistance(false), m_AlreadySearchedAssistance(false), m_cannotReachTarget(false), m_cannotReachTimer(0),
+    m_AlreadyCallAssistance(false), m_AlreadySearchedAssistance(false), m_cannotReachTarget(false), m_cannotReachTimer(0), m_assistCheckTime(0),
     m_meleeDamageSchoolMask(SPELL_SCHOOL_MASK_NORMAL), m_baseAttackPower(0), m_baseRangedAttackPower(0), m_originalEntry(0),
     m_homePosition(), m_transportHomePosition(), m_creatureInfo(nullptr), m_creatureData(nullptr), m_stringIds(),
     _waypointPathId(0), _currentWaypointNodeInfo(0, 0), m_formation(nullptr), m_triggerJustAppeared(true), m_respawnCompatibilityMode(false),
@@ -792,6 +792,24 @@ void Creature::Update(uint32 diff)
                 } else
                     m_boundaryCheckTime -= diff;
             }
+
+            // Periodically re-check for nearby allies to assist. The initial
+            // CallAssistance at engage is one-shot; this retry keeps looking as
+            // the fight moves or as allies become free.
+            if (IsEngaged() && !IsPet() && !IsCharmed() && !IsTotem() && !IsTrigger() &&
+                !GetCharmerOrOwnerGUID().IsPlayer())
+            {
+                if (m_assistCheckTime <= diff)
+                {
+                    SetNoCallAssistance(false);
+                    CallAssistance();
+                    m_assistCheckTime = 1 * IN_MILLISECONDS;
+                }
+                else
+                    m_assistCheckTime -= diff;
+            }
+            else if (m_assistCheckTime)
+                m_assistCheckTime = 0;
 
             // if periodic combat pulse is enabled and we are both in combat and in a dungeon, do this now
             if (m_combatPulseDelay > 0 && IsEngaged() && GetMap()->IsDungeon())
@@ -3262,6 +3280,10 @@ void Creature::AtEngage(Unit* target)
         }
     }
 
+    // Schedule the periodic assistance re-check; the first one-shot call comes
+    // from Unit::Attack. Eligible creatures are filtered in Creature::Update.
+    m_assistCheckTime = 1 * IN_MILLISECONDS;
+
     if (CreatureAI* ai = AI())
         ai->JustEngagedWith(target);
     if (CreatureGroup* formation = GetFormation())
@@ -3275,6 +3297,8 @@ void Creature::AtDisengage()
     ClearUnitState(UNIT_STATE_ATTACK_PLAYER);
     if (IsAlive() && HasDynamicFlag(UNIT_DYNFLAG_TAPPED))
         ReplaceAllDynamicFlags(GetCreatureTemplate()->dynamicflags);
+
+    m_assistCheckTime = 0;
 
     if (IsPet() || IsGuardian()) // update pets' speed for catchup OOC speed
     {
