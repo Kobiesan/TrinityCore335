@@ -15885,6 +15885,10 @@ void Player::SendQuestUpdate(uint32 questId)
 
 QuestGiverStatus Player::GetQuestDialogStatus(Object* questgiver)
 {
+    // Match GetNPCIfCanInteractWith: unfriendly or hostile NPCs cannot offer quests.
+    if (questgiver->GetTypeId() == TYPEID_UNIT && questgiver->ToCreature()->GetReactionTo(this) <= REP_UNFRIENDLY)
+        return DIALOG_STATUS_NONE;
+
     QuestRelationResult qr, qir;
 
     switch (questgiver->GetTypeId())
