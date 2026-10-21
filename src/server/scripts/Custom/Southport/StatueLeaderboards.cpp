@@ -30,6 +30,7 @@
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "RBAC.h"
+#include "SharedDefines.h"
 #include "StringFormat.h"
 #include "World.h"
 #include <cstdlib>
@@ -48,6 +49,10 @@ namespace
     constexpr uint32 PAGE_HAMMERS_LEDGER = 50015;
     constexpr uint32 PAGE_MERCY_LEDGER   = 50016;
     constexpr uint32 PAGE_PATRONS_ROLL   = 50017;
+    constexpr uint32 PAGE_WARSONG_GULCH  = 50018;
+    constexpr uint32 PAGE_ARATHI_BASIN   = 50019;
+
+    constexpr uint32 MIN_ELO_GAMES       = 1;
 
     constexpr uint32 CRIT_ACHIEVEMENT_POINTS = 12698; // earn achievement points
     constexpr uint32 CRIT_HIGHEST_HIT        = 5373;  // largest hit dealt
@@ -146,6 +151,29 @@ namespace
             {
                 Field* fields = result->Fetch();
                 rows.emplace_back(fields[0].GetString(), WithCommas(fields[1].GetUInt64()));
+            } while (result->NextRow());
+        }
+        return rows;
+    }
+
+    std::vector<BoardRow> ReadEloBoard(uint32 battleground, std::string const& accountFilter)
+    {
+        std::vector<BoardRow> rows;
+        if (QueryResult result = CharacterDatabase.PQuery(
+            "SELECT c.name, e.rating, e.games, e.wins, e.losses, e.draws "
+            "FROM character_battleground_elo e "
+            "JOIN characters c ON c.guid = e.guid "
+            "WHERE e.battleground = {} AND e.games >= {}{} "
+            "ORDER BY e.rating DESC, e.games DESC, e.wins DESC, c.name ASC LIMIT {}",
+            battleground, MIN_ELO_GAMES, accountFilter, TOP_COUNT))
+        {
+            do
+            {
+                Field* fields = result->Fetch();
+                rows.emplace_back(fields[0].GetString(), Trinity::StringFormat(
+                    "{} rating - {} games ({}W {}L {}D)",
+                    fields[1].GetUInt32(), fields[2].GetUInt32(), fields[3].GetUInt32(),
+                    fields[4].GetUInt32(), fields[5].GetUInt32()));
             } while (result->NextRow());
         }
         return rows;
@@ -251,6 +279,9 @@ namespace
             }
             Publish(PAGE_PATRONS_ROLL, BuildBoard("WALL OF PATRONS", "Those who keep the harbour afloat.", rows));
         }
+
+        Publish(PAGE_WARSONG_GULCH, BuildBoard("WARSONG GULCH", "Highest Warsong Gulch Elo rating.", ReadEloBoard(BATTLEGROUND_WS, joinFilter)));
+        Publish(PAGE_ARATHI_BASIN, BuildBoard("ARATHI BASIN", "Highest Arathi Basin Elo rating.", ReadEloBoard(BATTLEGROUND_AB, joinFilter)));
 
         sObjectMgr->LoadPageTexts();
         TC_LOG_INFO("scripts", "Southport: statue leaderboards refreshed.");

@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS `character_battleground_elo` (
+  `guid` int unsigned NOT NULL,
+  `battleground` tinyint unsigned NOT NULL,
+  `rating` int unsigned NOT NULL DEFAULT 1500,
+  `games` int unsigned NOT NULL DEFAULT 0,
+  `wins` int unsigned NOT NULL DEFAULT 0,
+  `losses` int unsigned NOT NULL DEFAULT 0,
+  `draws` int unsigned NOT NULL DEFAULT 0,
+  `kills` int unsigned NOT NULL DEFAULT 0,
+  `deaths` int unsigned NOT NULL DEFAULT 0,
+  `honorable_kills` int unsigned NOT NULL DEFAULT 0,
+  `damage_done` bigint unsigned NOT NULL DEFAULT 0,
+  `healing_done` bigint unsigned NOT NULL DEFAULT 0,
+  `flag_captures` int unsigned NOT NULL DEFAULT 0,
+  `flag_returns` int unsigned NOT NULL DEFAULT 0,
+  `bases_assaulted` int unsigned NOT NULL DEFAULT 0,
+  `bases_defended` int unsigned NOT NULL DEFAULT 0,
+  `last_match_key` varchar(64) NOT NULL DEFAULT '',
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`guid`,`battleground`),
+  KEY `idx_battleground_rating` (`battleground`,`rating`,`games`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

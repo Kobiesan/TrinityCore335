@@ -194,6 +194,17 @@ struct BattlegroundPlayer
     uint32 Team;                                           // Player's team
 };
 
+struct BattlegroundScoreSnapshot
+{
+    uint32 KillingBlows = 0;
+    uint32 Deaths = 0;
+    uint32 HonorableKills = 0;
+    uint32 DamageDone = 0;
+    uint32 HealingDone = 0;
+    uint32 Attr1 = 0;
+    uint32 Attr2 = 0;
+};
+
 struct BattlegroundObjectInfo
 {
     BattlegroundObjectInfo() : object(nullptr), timer(0), spellid(0) { }
@@ -345,6 +356,7 @@ class TC_GAME_API Battleground
 
         typedef std::map<ObjectGuid, BattlegroundScore*> BattlegroundScoreMap;
         uint32 GetPlayerScoresSize() const { return PlayerScores.size(); }
+        bool GetPlayerScoreSnapshot(ObjectGuid guid, BattlegroundScoreSnapshot& out) const;
 
         uint32 GetReviveQueueSize() const { return m_ReviveQueue.size(); }
 

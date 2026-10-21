@@ -20,6 +20,7 @@
 #include "BattlegroundMgr.h"
 #include "BattlegroundPackets.h"
 #include "BattlegroundScore.h"
+#include "BattlegroundElo.h"
 #include "ChatTextBuilder.h"
 #include "Creature.h"
 #include "CreatureTextMgr.h"
@@ -721,6 +722,8 @@ void Battleground::EndBattleground(uint32 winner)
         CharacterDatabase.Execute(stmt);
     }
 
+    BattlegroundElo::OnBattlegroundEnd(this, winner);
+
     SetStatus(STATUS_WAIT_LEAVE);
     //we must set it this way, because end time is sent in packet!
     SetRemainingTime(TIME_AUTOCLOSE_BATTLEGROUND);
@@ -1251,6 +1254,23 @@ bool Battleground::UpdatePlayerScore(Player* player, uint32 type, uint32 value, 
     else
         itr->second->UpdateScore(type, value);
 
+    return true;
+}
+
+bool Battleground::GetPlayerScoreSnapshot(ObjectGuid guid, BattlegroundScoreSnapshot& out) const
+{
+    BattlegroundScoreMap::const_iterator itr = PlayerScores.find(guid);
+    if (itr == PlayerScores.end() || !itr->second)
+        return false;
+
+    BattlegroundScore const* score = itr->second;
+    out.KillingBlows = score->GetKillingBlows();
+    out.Deaths = score->GetDeaths();
+    out.HonorableKills = score->GetHonorableKills();
+    out.DamageDone = score->GetDamageDone();
+    out.HealingDone = score->GetHealingDone();
+    out.Attr1 = score->GetAttr1();
+    out.Attr2 = score->GetAttr2();
     return true;
 }
 
