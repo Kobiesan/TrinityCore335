@@ -22,6 +22,8 @@
 #include "NPCPackets.h"
 #include "Opcodes.h"
 #include "Player.h"
+#include "Creature.h"
+#include "ReputationMgr.h"
 #include "WorldPacket.h"
 #include "WorldSession.h"
 
@@ -51,6 +53,10 @@ void WorldSession::HandleBankerActivateOpcode(WorldPackets::NPC::Hello& packet)
         TC_LOG_DEBUG("network", "WORLD: HandleBankerActivateOpcode - {} not found or you can not interact with him.", packet.Unit.ToString());
         return;
     }
+
+    // Discover the NPC faction even when this service opens without gossip.
+    if (FactionTemplateEntry const* faction = unit->GetFactionTemplateEntry())
+        GetPlayer()->GetReputationMgr().SetVisible(faction);
 
     // remove fake death
     if (GetPlayer()->HasUnitState(UNIT_STATE_DIED))

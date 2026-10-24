@@ -31,6 +31,7 @@
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
 #include "Player.h"
+#include "ReputationMgr.h"
 #include "UpdateMask.h"
 #include "Util.h"
 #include "World.h"
@@ -45,6 +46,10 @@ void WorldSession::HandleAuctionHelloOpcode(WorldPackets::AuctionHouse::AuctionH
         TC_LOG_DEBUG("network", "WORLD: HandleAuctionHelloOpcode - Unit ({}) not found or you can't interact with him.", hello.Guid.ToString());
         return;
     }
+
+    // Discover the NPC faction even when this service opens without gossip.
+    if (FactionTemplateEntry const* faction = unit->GetFactionTemplateEntry())
+        GetPlayer()->GetReputationMgr().SetVisible(faction);
 
     // remove fake death
     if (GetPlayer()->HasUnitState(UNIT_STATE_DIED))

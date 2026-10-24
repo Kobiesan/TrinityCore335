@@ -96,6 +96,10 @@ void WorldSession::HandleTrainerListOpcode(WorldPackets::NPC::Hello& packet)
         return;
     }
 
+    // Discover the NPC faction even when this service opens without gossip.
+    if (FactionTemplateEntry const* faction = npc->GetFactionTemplateEntry())
+        GetPlayer()->GetReputationMgr().SetVisible(faction);
+
     SendTrainerList(npc);
 }
 

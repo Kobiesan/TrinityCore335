@@ -31,6 +31,7 @@
 #include "Player.h"
 #include "QuestDef.h"
 #include "QuestPackets.h"
+#include "ReputationMgr.h"
 #include "ScriptMgr.h"
 #include "World.h"
 #include "WorldPacket.h"
@@ -84,6 +85,10 @@ void WorldSession::HandleQuestgiverHelloOpcode(WorldPacket& recvData)
             guid.ToString());
         return;
     }
+
+    // Quest-only greetings must discover reputation just like ordinary gossip.
+    if (FactionTemplateEntry const* faction = creature->GetFactionTemplateEntry())
+        GetPlayer()->GetReputationMgr().SetVisible(faction);
 
     // remove fake death
     if (GetPlayer()->HasUnitState(UNIT_STATE_DIED))

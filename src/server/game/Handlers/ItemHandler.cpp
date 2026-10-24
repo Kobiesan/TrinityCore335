@@ -28,6 +28,7 @@
 #include "NPCPackets.h"
 #include "ObjectMgr.h"
 #include "Player.h"
+#include "ReputationMgr.h"
 #include "SpellInfo.h"
 #include "QueryPackets.h"
 #include "World.h"
@@ -576,6 +577,10 @@ void WorldSession::SendListInventory(ObjectGuid vendorGuid)
         _player->SendSellError(SELL_ERR_CANT_FIND_VENDOR, nullptr, ObjectGuid::Empty, 0);
         return;
     }
+
+    // Discover the NPC faction even when this service opens without gossip.
+    if (FactionTemplateEntry const* faction = vendor->GetFactionTemplateEntry())
+        GetPlayer()->GetReputationMgr().SetVisible(faction);
 
     // remove fake death
     if (GetPlayer()->HasUnitState(UNIT_STATE_DIED))

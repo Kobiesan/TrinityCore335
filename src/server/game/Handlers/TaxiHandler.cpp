@@ -27,6 +27,7 @@
 #include "ObjectMgr.h"
 #include "Opcodes.h"
 #include "Player.h"
+#include "ReputationMgr.h"
 #include "WorldPacket.h"
 
 void WorldSession::HandleTaxiNodeStatusQueryOpcode(WorldPacket& recvData)
@@ -74,6 +75,10 @@ void WorldSession::HandleTaxiQueryAvailableNodes(WorldPacket& recvData)
         TC_LOG_DEBUG("network", "WORLD: HandleTaxiQueryAvailableNodes - {} not found or you can't interact with him.", guid.ToString());
         return;
     }
+
+    // Discover the NPC faction even when this service opens without gossip.
+    if (FactionTemplateEntry const* faction = unit->GetFactionTemplateEntry())
+        GetPlayer()->GetReputationMgr().SetVisible(faction);
 
     // remove fake death
     if (GetPlayer()->HasUnitState(UNIT_STATE_DIED))
