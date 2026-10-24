@@ -454,9 +454,9 @@ void ReputationMgr::SetVisible(FactionTemplateEntry const*factionTemplateEntry)
         return;
 
     if (FactionEntry const* factionEntry = sFactionStore.LookupEntry(factionTemplateEntry->Faction))
-        // Never show factions of the opposing team
-        if (!(factionEntry->ReputationRaceMask[1] & _player->GetRaceMask() && factionEntry->ReputationBase[1] == Reputation_Bottom))
-            SetVisible(factionEntry);
+        // Successful interaction discovers the faction regardless of racial base.
+        // Hidden/non-reputation factions remain filtered by SetVisible below.
+        SetVisible(factionEntry);
 }
 
 void ReputationMgr::SetVisible(FactionEntry const* factionEntry)
@@ -473,24 +473,44 @@ void ReputationMgr::SetVisible(FactionEntry const* factionEntry)
 
 void ReputationMgr::SetVisible(FactionState* faction)
 {
-    // always invisible or hidden faction can't be make visible
-    if (faction->Flags.HasFlag(ReputationFlags::Hidden))
+    auto reveal = [this](FactionState* state) -> bool
+    {
+        if (state->Flags.HasFlag(ReputationFlags::Hidden))
+            return false;
+
+        // Pure headers retain their native visibility policy; do not reveal hidden factions.
+        if (state->Flags.HasFlag(ReputationFlags::Header) &&
+            !state->Flags.HasFlag(ReputationFlags::HeaderShowsBar))
+            return false;
+
+        if (!state->Flags.HasFlag(ReputationFlags::Visible))
+        {
+            state->Flags |= ReputationFlags::Visible;
+            state->needSend = true;
+            state->needSave = true;
+            ++_visibleFactionCount;
+            SendVisible(state);
+        }
+        return true;
+    };
+
+    if (!reveal(faction))
         return;
 
-    if (faction->Flags.HasFlag(ReputationFlags::Header) && !faction->Flags.HasFlag(ReputationFlags::HeaderShowsBar))
-        return;
+    // All discovery routes, including reputation rewards and saved-state loading,
+    // must reveal the containing headers. Also repair parents of an already
+    // visible child without resending its packet or changing any standing.
+    FactionEntry const* factionEntry = sFactionStore.LookupEntry(faction->ID);
+    for (uint32 remaining = sFactionStore.GetNumRows(); factionEntry && factionEntry->ParentFactionID && remaining; --remaining)
+    {
+        factionEntry = sFactionStore.LookupEntry(factionEntry->ParentFactionID);
+        if (!factionEntry)
+            break;
 
-    // already set
-    if (faction->Flags.HasFlag(ReputationFlags::Visible))
-        return;
-
-    faction->Flags |= ReputationFlags::Visible;
-    faction->needSend = true;
-    faction->needSave = true;
-
-    ++_visibleFactionCount;
-
-    SendVisible(faction);
+        auto parent = _factions.find(factionEntry->ReputationIndex);
+        if (parent != _factions.end() && parent->second.Flags.HasFlag(ReputationFlags::Header))
+            reveal(&parent->second);
+    }
 }
 
 void ReputationMgr::SetAtWar(RepListID repListID, bool on)
