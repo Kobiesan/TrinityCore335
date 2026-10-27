@@ -18,6 +18,7 @@
 #include "SouthportGuard.h"
 #include "CellImpl.h"
 #include "Creature.h"
+#include "DBCStructure.h"
 #include "GameTime.h"
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
@@ -50,6 +51,15 @@ namespace
     // movement. Poll instead so a player who starts a fight while standing still is caught.
     constexpr uint32 AGGRO_SCAN_INTERVAL_MS = 1000;
     constexpr float  AGGRO_SCAN_RANGE       = 30.0f;
+
+    // Southport Cannoneer: lobs dynamite at its target during a fight.
+    constexpr uint32 SPELL_THROW_DYNAMITE   = 7978;   // stock level-20 spell (+2.5/level), 8 yd splash, 30 yd range
+    constexpr float  DYNAMITE_RANGE         = 30.0f;
+
+    // Southport Archer: holds its post and shoots, like the Alterac Valley bowmen.
+    constexpr uint32 SPELL_ARCHER_SHOOT     = 500184; // copy of the AV bowmen's Shoot 22121 (80 yd) scaled for level 20 (+3/level)
+    constexpr float  ARCHER_SHOOT_RANGE     = 80.0f;
+    constexpr float  ARCHER_WATCH_RANGE     = ARCHER_SHOOT_RANGE; // how far a posted archer looks for Southport's attackers
 }
 
 struct npc_southport_guard : public GuardAI
@@ -167,7 +177,147 @@ private:
     uint32 _scanTimer = 0;
 };
 
+// Same guard behavior as the marines, plus a thrown stick of dynamite every 9-13 seconds.
+struct npc_southport_cannoneer : public npc_southport_guard
+{
+    npc_southport_cannoneer(Creature* creature) : npc_southport_guard(creature) { }
+
+    void JustEngagedWith(Unit* who) override
+    {
+        npc_southport_guard::JustEngagedWith(who);
+        _dynamiteTimer = urand(2000, 4000);
+    }
+
+    void UpdateAI(uint32 diff) override
+    {
+        npc_southport_guard::UpdateAI(diff);
+
+        Unit* victim = me->GetVictim();
+        if (!victim || me->HasUnitState(UNIT_STATE_CASTING))
+            return;
+
+        if (_dynamiteTimer <= diff)
+        {
+            if (me->IsWithinDistInMap(victim, DYNAMITE_RANGE))
+            {
+                DoCastVictim(SPELL_THROW_DYNAMITE);
+                _dynamiteTimer = urand(9000, 13000);
+            }
+            else
+                _dynamiteTimer = 1000;
+        }
+        else
+            _dynamiteTimer -= diff;
+    }
+
+private:
+    uint32 _dynamiteTimer = 0;
+};
+
+// Same guard behavior as the marines, but never leaves its post in combat: it shoots its
+// target every 2.3-3.9 seconds out to 80 yards (stock AV bowman timing) and only melees
+// whatever reaches it.
+struct npc_southport_archer : public npc_southport_guard
+{
+    npc_southport_archer(Creature* creature) : npc_southport_guard(creature)
+    {
+        SetCombatMovement(false);
+        // random first watch so the posted archers don't all search on the same tick
+        _watchTimer = urand(0, AGGRO_SCAN_INTERVAL_MS);
+    }
+
+    void JustEngagedWith(Unit* who) override
+    {
+        npc_southport_guard::JustEngagedWith(who);
+        _shootTimer = 0;
+    }
+
+    void UpdateAI(uint32 diff) override
+    {
+        if (!me->IsEngaged() && me->IsAlive() && !me->HasReactState(REACT_PASSIVE))
+        {
+            if (_watchTimer <= diff)
+            {
+                _watchTimer = AGGRO_SCAN_INTERVAL_MS;
+                WatchFromPost();
+            }
+            else
+                _watchTimer -= diff;
+        }
+
+        npc_southport_guard::UpdateAI(diff);
+
+        Unit* victim = me->GetVictim();
+        if (!victim || me->HasUnitState(UNIT_STATE_CASTING))
+            return;
+
+        if (_shootTimer <= diff)
+        {
+            if (me->IsWithinDistInMap(victim, ARCHER_SHOOT_RANGE))
+                DoCastVictim(SPELL_ARCHER_SHOOT);
+            _shootTimer = urand(2300, 3900);
+        }
+        else
+            _shootTimer -= diff;
+    }
+
+private:
+    // The stock aggro checks never reach the street from a wall post: CanStartAttack rejects
+    // anyone more than 3 yards above or below, the aggro radius (~18.5 yards) is shorter than
+    // the drop, and the call for help is measured in 3D from the attacked NPC. A player at war
+    // with Southport also stays neutral to an idle guard, so look for Southport's attackers
+    // directly, anywhere in bow range and in sight.
+    void WatchFromPost()
+    {
+        if (me->IsImmuneToPC())
+            return;
+
+        std::list<Player*> players;
+        Trinity::AnyPlayerInObjectRangeCheck checker(me, ARCHER_WATCH_RANGE);
+        Trinity::PlayerListSearcher<Trinity::AnyPlayerInObjectRangeCheck> searcher(me, players, checker);
+        Cell::VisitWorldObjects(me, searcher, ARCHER_WATCH_RANGE);
+
+        for (Player* player : players)
+        {
+            if (!player->IsAlive() || !IsSouthportEnemy(player))
+                continue;
+
+            // same legality checks the core applies before a guard answers a call for help
+            if (!CombatManager::CanBeginCombat(me, player) || !me->IsValidAttackTarget(player)
+                || !me->IsWithinLOSInMap(player))
+                continue;
+
+            me->EngageWithTarget(player);
+            break;
+        }
+    }
+
+    // hostile to Southport, flagged for PvP, or fighting any NPC of the archer's own faction
+    // (Southport 2000 covers both the guard template 2237 and the townsfolk template 2238).
+    // Cheapest checks first: most players in town clear the flag and empty combat list, so
+    // the reputation lookup behind IsHostileTo runs last.
+    bool IsSouthportEnemy(Player const* player) const
+    {
+        if (player->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_CONTESTED_PVP))
+            return true;
+
+        if (FactionTemplateEntry const* myTemplate = me->GetFactionTemplateEntry())
+            if (myTemplate->Faction)
+                for (auto const& pair : player->GetCombatManager().GetPvECombatRefs())
+                    if (FactionTemplateEntry const* otherTemplate = pair.second->GetOther(player)->GetFactionTemplateEntry())
+                        if (otherTemplate->Faction == myTemplate->Faction)
+                            return true;
+
+        return me->IsHostileTo(player);
+    }
+
+    uint32 _shootTimer = 0;
+    uint32 _watchTimer = 0;
+};
+
 void AddSC_southport_guard()
 {
     RegisterCreatureAI(npc_southport_guard);
+    RegisterCreatureAI(npc_southport_cannoneer);
+    RegisterCreatureAI(npc_southport_archer);
 }
