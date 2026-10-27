@@ -8499,9 +8499,12 @@ void Unit::SetVisible(bool x)
 
 void Unit::UpdateSpeed(UnitMoveType mtype)
 {
-    // Fleet Footed uses the complete forward-run calculation (including slows,
-    // mounts and normalization), then sends a normal backward-speed packet.
-    bool const fleetFooted = IsPlayer() && HasAura(90178);
+    // Fleet Footed uses the complete forward-run calculation while on foot, so
+    // slows and normalization apply to backward movement too. Mounted backward
+    // speed must stay on the normal backward calculation instead of inheriting
+    // the mounted run speed.
+    bool const hasFleetFooted = IsPlayer() && HasAura(90178);
+    bool const fleetFooted = hasFleetFooted && !IsMounted();
     UnitMoveType const calculationType = fleetFooted && mtype == MOVE_RUN_BACK ? MOVE_RUN : mtype;
     int32 main_speed_mod  = 0;
     float stack_bonus     = 1.0f;
@@ -8658,7 +8661,7 @@ void Unit::UpdateSpeed(UnitMoveType mtype)
         speed *= playerBaseMoveSpeed[MOVE_RUN] / playerBaseMoveSpeed[MOVE_RUN_BACK];
 
     SetSpeedRate(mtype, speed);
-    if (fleetFooted && mtype == MOVE_RUN)
+    if (hasFleetFooted && mtype == MOVE_RUN)
         UpdateSpeed(MOVE_RUN_BACK);
 }
 

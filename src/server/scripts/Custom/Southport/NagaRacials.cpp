@@ -8,7 +8,8 @@
 #include "Unit.h"
 
 // 90178 - Fleet Footed. Refresh on learning, login, resurrection and removal.
-// Unit::UpdateSpeed also keeps it synchronized with movement auras and riding.
+// Unit::UpdateSpeed keeps it synchronized with movement auras and riding; the
+// backward-speed benefit is applied only while the player is not mounted.
 class spell_tbv_naga_fleet_footed : public AuraScript
 {
     PrepareAuraScript(spell_tbv_naga_fleet_footed);
