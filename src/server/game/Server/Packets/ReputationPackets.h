@@ -32,7 +32,7 @@ namespace WorldPackets
 
         class InitializeFactions final : public ServerPacket
         {
-            static constexpr uint32 FactionCount = 128;
+            static constexpr uint32 FactionCount = 512;
 
         public:
             explicit InitializeFactions() : ServerPacket(SMSG_INITIALIZE_FACTIONS, 4 + (1 + 4) * FactionCount) { }
