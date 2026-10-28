@@ -204,7 +204,7 @@ public:
             }
             else if (creature < 0)
                 for (uint16 z = 0; z < creatureCount; ++z)
-                    player->KillCreditGO(creature);
+                    player->KillCreditGO(-creature); // GO objectives are stored negated
         }
 
         // player kills
